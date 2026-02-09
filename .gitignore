@@ -1,1 +1,5 @@
 # User configuration is now stored in ~/.lls_showroom (outside repo)
+
+# Generated config files
+config_base.yaml
+kustomize/overlays/reference/config.yaml

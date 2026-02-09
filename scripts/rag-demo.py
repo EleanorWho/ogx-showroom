@@ -76,7 +76,7 @@ class LlamaStackDemo:
 
             if access_token:
                 self.session.headers.update({'Authorization': f'Bearer {access_token}'})
-                print(f"✓ Authentication successful({access_token})")
+                print(f"✓ Authentication successful")
                 print(f"  Token type: {token_data.get('token_type', 'Bearer')}")
                 print(f"  Expires in: {token_data.get('expires_in', 'unknown')} seconds")
                 return True

@@ -6,7 +6,7 @@ namespace: redhat-ods-applications
 resources:
 - dscinitialization.yaml
 - datasciencecluster.yaml
+- keycloak.yaml
 - postgres.yaml
-- llamastackdistribution.yaml
 - networkpolicy.yaml
 - route.yaml
