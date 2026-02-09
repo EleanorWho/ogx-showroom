@@ -24,7 +24,8 @@ Example with explicit secret:
         developer dev123 <client-secret>
 
 If Keycloak parameters are not provided, the script will attempt to run without authentication.
-The client secret can be set in ~/.lls_showroom as KEYCLOAK_CLIENT_SECRET.
+The client secret is read from (in order): command line argument, persistent secrets file,
+KEYCLOAK_CLIENT_SECRET env var, or auto-generated if not found.
 
 Note: This is a simplified demo. For production RAG, consider using vector databases
 with the LlamaStack vector-io API or vector_stores endpoints.
@@ -35,7 +36,19 @@ import requests
 import json
 import numpy as np
 import os
+from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
+
+# Add scripts directory to path for imports
+SCRIPT_DIR = Path(__file__).parent
+sys.path.insert(0, str(SCRIPT_DIR))
+
+try:
+    from secrets_util import get_or_set
+except ImportError:
+    # Fallback if secrets_util is not available
+    def get_or_set(key: str, default: Optional[str] = None, **kwargs) -> Optional[str]:
+        return default or os.environ.get(key)
 
 
 class LlamaStackDemo:
@@ -214,14 +227,17 @@ def main():
         print("  python scripts/rag-demo.py https://llamastack-distribution-redhat-ods-applications.apps.example.com \\")
         print("      https://keycloak-redhat-ods-applications.apps.example.com \\")
         print("      developer dev123 <client-secret>")
-        print("\nNote: Set KEYCLOAK_CLIENT_SECRET in ~/.lls_showroom or pass as argument")
+        print("\nNote: Client secret is automatically stored in ~/.lls_showroom_generated after provision.sh")
         sys.exit(1)
 
     llamastack_url = sys.argv[1]
     keycloak_url = sys.argv[2] if len(sys.argv) > 2 else None
     username = sys.argv[3] if len(sys.argv) > 3 else None
     password = sys.argv[4] if len(sys.argv) > 4 else None
-    client_secret = sys.argv[5] if len(sys.argv) > 5 else os.environ.get('KEYCLOAK_CLIENT_SECRET')
+
+    # Get client secret from command line or persistent storage
+    # get_or_set checks: secrets file, env var, then generates if needed
+    client_secret = sys.argv[5] if len(sys.argv) > 5 else get_or_set('KEYCLOAK_CLIENT_SECRET')
 
     print("=" * 60)
     print("LlamaStack Chat and Embeddings Demo")
