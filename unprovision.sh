@@ -19,6 +19,23 @@ oc delete networkpolicy llamastack-allow-ingress -n redhat-ods-applications --ig
 echo "Removing LlamaStackDistribution..."
 oc delete llamastackdistribution llamastack-distribution -n redhat-ods-applications --ignore-not-found=true --timeout=60s
 
+# Delete ConfigMaps
+echo "Removing ConfigMaps..."
+oc delete configmap llamastack-config -n redhat-ods-applications --ignore-not-found=true
+
+# Delete Milvus
+echo "Removing Milvus..."
+oc delete deployment milvus -n redhat-ods-applications --ignore-not-found=true --timeout=60s
+oc delete service milvus -n redhat-ods-applications --ignore-not-found=true
+oc delete pvc milvus-pvc -n redhat-ods-applications --ignore-not-found=true
+oc delete networkpolicy milvus-allow-ingress -n redhat-ods-applications --ignore-not-found=true
+
+# Delete etcd
+echo "Removing etcd..."
+oc delete deployment etcd -n redhat-ods-applications --ignore-not-found=true --timeout=60s
+oc delete service etcd -n redhat-ods-applications --ignore-not-found=true
+oc delete networkpolicy etcd-allow-ingress -n redhat-ods-applications --ignore-not-found=true
+
 # Delete PostgreSQL
 echo "Removing PostgreSQL..."
 oc delete deployment postgres -n redhat-ods-applications --ignore-not-found=true --timeout=60s
