@@ -7,3 +7,12 @@ kustomize/overlays/reference/config.yaml
 # Python cache
 __pycache__/
 *.pyc
+*.pyo
+.pytest_cache/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
