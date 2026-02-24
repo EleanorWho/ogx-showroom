@@ -9,14 +9,12 @@
 #
 # 2. Edit ~/.lls_showroom and set required values:
 #    o SHOWROOM_PULL_SECRET: base64-encoded quay.io credentials for setup.sh
-#    o KEYCLOAK_CLIENT_SECRET: client secret from Keycloak for scripts/rag-demo.py
 #
 # 3. Source the config before running scripts that need it:
 #    source ~/.lls_showroom
 #    python scripts/rag-demo.py <ARGS>
 #
 # REQUIRED: SHOWROOM_PULL_SECRET (for setup.sh)
-# OPTIONAL: KEYCLOAK_CLIENT_SECRET (for rag-demo.py authentication)
 #
 
 # IMAGE pull secret
@@ -46,6 +44,3 @@ export SHOWROOM_VLLM_EMBEDDING_API_TOKEN="${SHOWROOM_VLLM_EMBEDDING_API_TOKEN:-}
 export SHOWROOM_EMBEDDING_MODEL="${SHOWROOM_EMBEDDING_MODEL:-nomic-embed-text-v1.5}"
 export SHOWROOM_EMBEDDING_PROVIDER_MODEL_ID="${SHOWROOM_EMBEDDING_PROVIDER_MODEL_ID:-nomic-ai/nomic-embed-text-v1.5}"
 export SHOWROOM_EMBEDDING_DIMENSION="${SHOWROOM_EMBEDDING_DIMENSION:-768}"
-
-# Keycloak configuration
-export KEYCLOAK_CLIENT_SECRET="${KEYCLOAK_CLIENT_SECRET:-}"

@@ -6,11 +6,11 @@ namespace: redhat-ods-applications
 resources:
 - dscinitialization.yaml
 - datasciencecluster.yaml
+- keycloak.yaml
 - postgres.yaml
 - etcd.yaml
 - etcd-networkpolicy.yaml
 - milvus.yaml
 - milvus-networkpolicy.yaml
-- llamastackdistribution.yaml
 - networkpolicy.yaml
 - route.yaml

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 echo "=========================================="
-echo "Setting up CI environment..."
+echo "Setting up environment..."
 echo "=========================================="
 echo ""
 
@@ -14,9 +14,6 @@ CONFIG_FILE="${HOME}/.lls_showroom"
 if [ ! -f "${CONFIG_FILE}" ]; then
   echo "ERROR: Configuration file not found: ${CONFIG_FILE}"
   echo ""
-  echo "Please create ${CONFIG_FILE} with your configuration."
-  echo "You can use config.sh.example as a template:"
-  echo ""
   echo "  cp ${SCRIPT_DIR}/config.sh.example ${CONFIG_FILE}"
   echo "  # Then edit ${CONFIG_FILE} and add your credentials"
   echo ""
@@ -26,38 +23,17 @@ fi
 # shellcheck source=/dev/null
 source "${CONFIG_FILE}"
 
-# Allow GitHub Action inputs to override config values
-# If GitHub Action provides values, use them; otherwise keep ~/.lls_showroom defaults
-if [ -n "${CATALOG_IMAGE:-}" ]; then
-  SHOWROOM_CATALOG_IMAGE="${CATALOG_IMAGE}"
-fi
-if [ -n "${LLAMA_STACK_IMAGE:-}" ]; then
-  SHOWROOM_LLAMA_STACK_IMAGE="${LLAMA_STACK_IMAGE}"
-fi
-if [ -n "${OPERATOR_IMAGE:-}" ]; then
-  SHOWROOM_OPERATOR_IMAGE="${OPERATOR_IMAGE}"
-fi
-
 # Function to wait for Kyverno webhooks to be ready
 wait_for_kyverno_webhooks() {
-  local check_mutating="${1:-false}"
-
-  echo "Waiting for Kyverno webhook to be ready..."
+  echo "Waiting for Kyverno webhooks to be ready..."
   local timeout=60
   local elapsed=0
 
   while [ $elapsed -lt $timeout ]; do
-    if [ "$check_mutating" = "true" ]; then
-      if oc get validatingwebhookconfigurations kyverno-policy-validating-webhook-cfg &>/dev/null && \
-         oc get mutatingwebhookconfigurations kyverno-resource-mutating-webhook-cfg &>/dev/null; then
-        echo "Kyverno webhooks are ready"
-        return 0
-      fi
-    else
-      if oc get validatingwebhookconfigurations kyverno-policy-validating-webhook-cfg &>/dev/null; then
-        echo "Kyverno webhook is ready"
-        return 0
-      fi
+    if oc get validatingwebhookconfigurations kyverno-policy-validating-webhook-cfg &>/dev/null && \
+       oc get mutatingwebhookconfigurations kyverno-resource-mutating-webhook-cfg &>/dev/null; then
+      echo "Kyverno webhooks are ready"
+      return 0
     fi
     sleep 2
     elapsed=$((elapsed + 2))
@@ -97,12 +73,12 @@ fi
 
 # Validate SHOWROOM_PULL_SECRET is configured
 if [ -z "${SHOWROOM_PULL_SECRET}" ]; then
-    echo "ERROR: SHOWROOM_PULL_SECRET is not set in config.sh"
+    echo "ERROR: SHOWROOM_PULL_SECRET is not set in ${CONFIG_FILE}"
     echo "Please configure SHOWROOM_PULL_SECRET with your base64-encoded quay.io credentials"
     exit 1
 fi
 
-echo "Using credentials from config.sh (SHOWROOM_PULL_SECRET)"
+echo "Using credentials from ${CONFIG_FILE} (SHOWROOM_PULL_SECRET)"
 
 TMP_DIR=$(mktemp -d)
 
@@ -156,13 +132,13 @@ else
   oc wait --for=condition=available --timeout=300s deployment/kyverno-reports-controller -n kyverno
 
   echo ""
-  wait_for_kyverno_webhooks true
+  wait_for_kyverno_webhooks
 fi
 
 # Clean up any old policies
 echo ""
 echo "Cleaning up old Kyverno policies..."
-oc delete clusterpolicy sync-secrets add-imagepullsecrets replace-image-registry 2>/dev/null || true
+oc delete clusterpolicy sync-secrets add-imagepullsecrets replace-image-registry replace-rhoai-llama-stack-images 2>/dev/null || true
 
 # Apply comprehensive policies for OCPBUGS-23901
 echo ""
@@ -358,13 +334,8 @@ echo ""
 if oc run temp-config-extractor \
   --image="${CONFIG_IMAGE}" \
   --restart=Never --rm -i --command -- cat /opt/app-root/config.yaml 2>&1 | \
-  grep -v "pod \"temp-config-extractor\" deleted" > "${SCRIPT_DIR}/config.yaml"; then
-  echo "Config extracted successfully to ${SCRIPT_DIR}/config.yaml"
-
-  # Copy config.yaml to reference overlay directory
-  echo "Copying config.yaml to reference overlay..."
-  cp "${SCRIPT_DIR}/config.yaml" "${SCRIPT_DIR}/kustomize/overlays/reference/config.yaml"
-  echo "Config copied to kustomize/overlays/reference/config.yaml"
+  grep -v "pod \"temp-config-extractor\" deleted" > "${SCRIPT_DIR}/config_base.yaml"; then
+  echo "Config extracted successfully to ${SCRIPT_DIR}/config_base.yaml"
 else
   echo "Warning: Failed to extract config.yaml"
   exit 1

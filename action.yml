@@ -31,9 +31,9 @@ runs:
       id: setup
       shell: bash
       env:
-        CATALOG_IMAGE: ${{ inputs.catalog_image }}
-        LLAMA_STACK_IMAGE: ${{ inputs.llama_stack_image }}
-        OPERATOR_IMAGE: ${{ inputs.operator_image }}
+        SHOWROOM_CATALOG_IMAGE: ${{ inputs.catalog_image }}
+        SHOWROOM_LLAMA_STACK_IMAGE: ${{ inputs.llama_stack_image }}
+        SHOWROOM_OPERATOR_IMAGE: ${{ inputs.operator_image }}
         ENV_VARS: ${{ inputs.env }}
       run: |
         chmod +x ${{ github.action_path }}/setup.sh

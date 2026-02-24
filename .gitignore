@@ -1,2 +1,9 @@
 # User configuration is now stored in ~/.lls_showroom (outside repo)
-config.yaml
+
+# Generated config files
+config_base.yaml
+kustomize/overlays/reference/config.yaml
+
+# Python cache
+__pycache__/
+*.pyc

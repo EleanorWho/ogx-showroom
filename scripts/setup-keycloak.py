@@ -20,6 +20,13 @@ import json
 import requests
 import urllib3
 from typing import Dict, Any, Optional
+from pathlib import Path
+
+# Add scripts directory to path for imports
+SCRIPT_DIR = Path(__file__).parent
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from secrets_util import get_or_set
 
 # Disable SSL warnings for demo purposes
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -516,10 +523,10 @@ class KeycloakSetup:
             if not self.create_users():
                 return False
 
-            # Set custom client secret if provided
+            # Set persistent client secret
             if self.client_secret:
                 if not self.set_client_secret(self.client_secret):
-                    print("Warning: Failed to set custom client secret, using generated one")
+                    print("Warning: Failed to set persistent client secret")
 
             # Display client secret
             client_secret = self.get_client_secret()
@@ -531,11 +538,7 @@ class KeycloakSetup:
                 print(f"   JWKS URI: {self.base_url}/realms/{self.realm_name}/protocol/openid-connect/certs")
                 print(f"   Issuer: {self.base_url}/realms/{self.realm_name}")
                 print(f"   Token Endpoint: {self.base_url}/realms/{self.realm_name}/protocol/openid-connect/token")
-
-                if not self.client_secret:
-                    print(f"\n💡 To save this client secret for use with rag-demo.py:")
-                    print(f"   Add the following line to ~/.lls_showroom:")
-                    print(f"   export KEYCLOAK_CLIENT_SECRET=\"{client_secret}\"")
+                print(f"\n   Secret stored in: ~/.lls_showroom_generated")
 
                 print(f"\n👥 Demo Users:")
                 print(f"   admin / admin123 (role: admin, team: platform-team)")
@@ -556,11 +559,13 @@ class KeycloakSetup:
 def main():
     keycloak_url = os.getenv('KEYCLOAK_URL', 'https://kc-keycloak.com')
     admin_password = os.getenv('KEYCLOAK_ADMIN_PASSWORD', 'dummy')
-    client_secret = os.getenv('KEYCLOAK_CLIENT_SECRET')
+
+    # Get or generate client secret using secrets utility
+    # This ensures the same secret is used across deployments
+    client_secret = get_or_set('KEYCLOAK_CLIENT_SECRET')
 
     print(f"Keycloak URL: {keycloak_url}")
-    if client_secret:
-        print("Using custom client secret from KEYCLOAK_CLIENT_SECRET")
+    print("Using persistent client secret from ~/.lls_showroom_generated")
 
     setup = KeycloakSetup(keycloak_url, admin_password, client_secret)
     success = setup.setup_all()

@@ -16,7 +16,6 @@ cp config.sh.example ~/.lls_showroom
 ## Run Demo
 
 ```bash
-. ~/.lls_showroom  # Load environment variables
 ./scripts/rag-demo.py $LLAMA_STACK_URL $KEYCLOAK_URL $USERNAME $PASSWORD
 ```
 

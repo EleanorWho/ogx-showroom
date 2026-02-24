@@ -12,34 +12,34 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Default overlay
 OVERLAY="${1:-reference}"
 
+# Generic wait function - waits for a command to succeed
+wait_for() {
+  local description="$1"
+  local command="$2"
+  local timeout="${3:-300}"
+  local interval="${4:-5}"
+
+  echo "Waiting for ${description}..."
+  local elapsed=0
+
+  while [ $elapsed -lt $timeout ]; do
+    if eval "$command" &>/dev/null; then
+      echo "${description} - ready"
+      return 0
+    fi
+    sleep "$interval"
+    elapsed=$((elapsed + interval))
+  done
+
+  echo "ERROR: Timeout waiting for ${description}"
+  return 1
+}
+
 # Source configuration if available
 CONFIG_FILE="${HOME}/.lls_showroom"
 if [ -f "${CONFIG_FILE}" ]; then
   # shellcheck source=/dev/null
   source "${CONFIG_FILE}"
-fi
-
-# Allow GitHub Action inputs to override config values
-if [ -n "${CATALOG_IMAGE:-}" ]; then
-  SHOWROOM_CATALOG_IMAGE="${CATALOG_IMAGE}"
-fi
-if [ -n "${LLAMA_STACK_IMAGE:-}" ]; then
-  SHOWROOM_LLAMA_STACK_IMAGE="${LLAMA_STACK_IMAGE}"
-fi
-if [ -n "${OPERATOR_IMAGE:-}" ]; then
-  SHOWROOM_OPERATOR_IMAGE="${OPERATOR_IMAGE}"
-fi
-if [ -n "${VLLM_URL:-}" ]; then
-  SHOWROOM_VLLM_URL="${VLLM_URL}"
-fi
-if [ -n "${VLLM_API_TOKEN:-}" ]; then
-  SHOWROOM_VLLM_API_TOKEN="${VLLM_API_TOKEN}"
-fi
-if [ -n "${VLLM_EMBEDDING_URL:-}" ]; then
-  SHOWROOM_VLLM_EMBEDDING_URL="${VLLM_EMBEDDING_URL}"
-fi
-if [ -n "${VLLM_EMBEDDING_API_TOKEN:-}" ]; then
-  SHOWROOM_VLLM_EMBEDDING_API_TOKEN="${VLLM_EMBEDDING_API_TOKEN}"
 fi
 
 echo "Configuration:"
@@ -66,21 +66,6 @@ if [ -z "${SHOWROOM_VLLM_EMBEDDING_URL:-}" ] || [ -z "${SHOWROOM_VLLM_EMBEDDING_
   exit 1
 fi
 
-# Check if kustomize is available (either standalone or via kubectl)
-KUSTOMIZE_CMD=""
-if command -v kustomize &> /dev/null; then
-  KUSTOMIZE_CMD="kustomize"
-elif command -v kubectl &> /dev/null && kubectl kustomize --help &> /dev/null; then
-  KUSTOMIZE_CMD="kubectl kustomize"
-else
-  echo "ERROR: kustomize is not available"
-  echo "Please install either:"
-  echo "  - kustomize: https://kubectl.docs.kubernetes.io/installation/kustomize/"
-  echo "  - or kubectl with kustomize support"
-  exit 1
-fi
-echo "Using: ${KUSTOMIZE_CMD}"
-
 # Validate overlay exists
 OVERLAY_PATH="${SCRIPT_DIR}/kustomize/overlays/${OVERLAY}"
 if [ ! -d "${OVERLAY_PATH}" ]; then
@@ -106,171 +91,33 @@ echo ""
 
 # Add auth configuration to config.yaml if using reference overlay
 if [ "${OVERLAY}" = "reference" ]; then
-  echo "Adding ABAC auth configuration to config.yaml..."
-
-  # Check if auth section already exists
-  if ! grep -q "^  auth:" "${OVERLAY_PATH}/config.yaml" 2>/dev/null; then
-    # Append auth configuration
-    cat >> "${OVERLAY_PATH}/config.yaml" << 'EOF'
-  auth:
-    provider_config:
-      type: "oauth2_token"
-      jwks:
-        uri: ${env.KEYCLOAK_URL:=http://keycloak:8080}/realms/llamastack-demo/protocol/openid-connect/certs
-        key_recheck_period: 3600
-      issuer: ${env.KEYCLOAK_ISSUER_URL:=http://keycloak:8080}/realms/llamastack-demo
-      audience: "account"
-      verify_tls: ${env.KEYCLOAK_VERIFY_TLS:=false}
-      claims_mapping:
-        llamastack_roles: "roles"
-        llamastack_teams: "teams"
-    access_policy:
-      # User role: read-only access to in-house models
-      - permit:
-          actions: [read]
-          resource: model::vllm-inference/llama-3-2-3b
-        when: user with user in roles
-        description: Users can read vLLM Llama model
-      - permit:
-          actions: [read]
-          resource: model::sentence-transformers/ibm-granite/granite-embedding-125m-english
-        when: user with user in roles
-        description: Users can read embedding models
-
-      # Developer role: broader model access + data management
-      - permit:
-          actions: [read]
-          resource: model::vllm-inference/llama-3-2-3b
-        when: user with developer in roles
-        description: Developers can read vLLM Llama model
-      - permit:
-          actions: [read]
-          resource: model::openai/gpt-4o-mini
-        when: user with developer in roles
-        description: Developers can read openai/gpt-4o-mini
-      - permit:
-          actions: [read]
-          resource: model::sentence-transformers/ibm-granite/granite-embedding-125m-english
-        when: user with developer in roles
-        description: Developers can read embedding models
-      - permit:
-          actions: [create]
-          resource: vector_store::*
-        when: user with developer in roles
-        description: Developers can create vector stores
-      - permit:
-          actions: [read]
-          resource: sql_record::*
-        when: user with developer in roles
-        description: Developers can read SQL records
-      - permit:
-          actions: [create]
-          resource: dataset::*
-        when: user with developer in roles
-        description: Developers can create datasets
-      - permit:
-          actions: [create, read, delete]
-          resource: sql_record::openai_files::*
-        when: user with developer in roles
-        description: Developers can manage files
-
-      # Admin role: full access to everything
-      - permit:
-          actions: [create, read, update, delete]
-        when: user with admin in roles
-        description: Admins have full access to all resources
-
-      # Team-based access control for vector stores
-      - permit:
-          actions: [read, delete]
-          resource: vector_store::*
-        when: user in owners teams
-        description: Teams can access their own vector stores
-
-      # Owner-based access control
-      - permit:
-          actions: [read, delete]
-          resource: vector_store::*
-        when: user is owner
-        description: Owners can access their own vector stores
-      - permit:
-          actions: [read, delete]
-          resource: sql_record::openai_files::*
-        when: user is owner
-        description: Owners can access their own files
-      - permit:
-          actions: [read, update, delete]
-          resource: dataset::*
-        when: user is owner
-        description: Owners can manage their own datasets
-EOF
-    echo "ABAC auth configuration added"
-  else
-    echo "Auth configuration already exists in config.yaml"
-  fi
+  echo "Building config.yaml with ABAC auth configuration..."
+  cat "${SCRIPT_DIR}/config_base.yaml" "${OVERLAY_PATH}/config_abac.yaml.template" > "${OVERLAY_PATH}/config.yaml"
+  echo "Config.yaml built successfully"
 fi
 
 # Build with kustomize and apply
 # Note: We still use envsubst to substitute secrets from environment
-${KUSTOMIZE_CMD} "${OVERLAY_PATH}" | envsubst | oc apply -f -
+oc kustomize "${OVERLAY_PATH}" | envsubst | oc apply -f -
 
 echo ""
-echo "Waiting for DataScienceCluster to be ready..."
-timeout=600
-elapsed=0
-while [ $elapsed -lt $timeout ]; do
-  phase=$(oc get datasciencecluster default-dsc -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
-  if [ "$phase" = "Ready" ]; then
-    echo "DataScienceCluster is ready"
-    break
-  fi
-  echo "Current phase: ${phase:-Unknown} (waiting...)"
-  sleep 10
-  elapsed=$((elapsed + 10))
-  if [ $elapsed -ge $timeout ]; then
-    echo "ERROR: Timeout waiting for DataScienceCluster to be ready"
-    exit 1
-  fi
-done
+wait_for "DataScienceCluster to be ready" \
+  "[ \"\$(oc get datasciencecluster default-dsc -o jsonpath='{.status.phase}' 2>/dev/null)\" = 'Ready' ]" \
+  600 10 || exit 1
 
 # Wait for redhat-ods-applications namespace to be created
 echo ""
-echo "Waiting for redhat-ods-applications namespace..."
-timeout=300
-elapsed=0
-while [ $elapsed -lt $timeout ]; do
-  if oc get namespace redhat-ods-applications &>/dev/null; then
-    echo "Namespace redhat-ods-applications exists"
-    break
-  fi
-  sleep 5
-  elapsed=$((elapsed + 5))
-  if [ $elapsed -ge $timeout ]; then
-    echo "ERROR: Timeout waiting for redhat-ods-applications namespace"
-    exit 1
-  fi
-done
+wait_for "namespace redhat-ods-applications" \
+  "oc get namespace redhat-ods-applications" \
+  300 5 || exit 1
 
 echo ""
-echo "Waiting for PostgreSQL to be ready..."
-timeout=300
-elapsed=0
-while [ $elapsed -lt $timeout ]; do
-  ready=$(oc get deployment postgres -n redhat-ods-applications -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-  if [ "$ready" = "1" ]; then
-    echo "PostgreSQL is ready"
-    break
-  fi
-  echo "Ready replicas: ${ready}/1 (waiting...)"
-  sleep 5
-  elapsed=$((elapsed + 5))
-  if [ $elapsed -ge $timeout ]; then
-    echo "ERROR: Timeout waiting for PostgreSQL to be ready"
-    exit 1
-  fi
-done
+wait_for "PostgreSQL deployment" \
+  "[ \"\$(oc get deployment postgres -n redhat-ods-applications -o jsonpath='{.status.readyReplicas}' 2>/dev/null)\" = '1' ]" \
+  300 5 || exit 1
 
 echo ""
+
 echo "Waiting for etcd to be ready..."
 timeout=300
 elapsed=0
@@ -308,26 +155,14 @@ while [ $elapsed -lt $timeout ]; do
   fi
 done
 
-echo ""
-echo "Waiting for LlamaStackDistribution to be ready..."
-timeout=600
-elapsed=0
-while [ $elapsed -lt $timeout ]; do
-  phase=$(oc get llamastackdistribution llamastack-distribution -n redhat-ods-applications -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
-  if [ "$phase" = "Ready" ]; then
-    echo "LlamaStackDistribution is ready"
-    break
-  fi
-  echo "Current phase: ${phase:-Unknown} (waiting...)"
-  sleep 10
-  elapsed=$((elapsed + 10))
-  if [ $elapsed -ge $timeout ]; then
-    echo "WARNING: Timeout waiting for LlamaStackDistribution to be ready"
-    echo "You may need to check the status manually:"
-    echo "  oc get llamastackdistribution llamastack-distribution -n redhat-ods-applications"
-    break
-  fi
-done
+if ! wait_for "LlamaStackDistribution to be ready" \
+  "[ \"\$(oc get llamastackdistribution llamastack-distribution -n redhat-ods-applications -o jsonpath='{.status.phase}' 2>/dev/null)\" = 'Ready' ]" \
+  600 10; then
+  echo "WARNING: Timeout waiting for LlamaStackDistribution to be ready"
+  echo "You may need to check the status manually:"
+  echo "  oc get llamastackdistribution llamastack-distribution -n redhat-ods-applications"
+fi
+
 
 # Get the route URL
 echo ""
@@ -350,23 +185,9 @@ if [ "${OVERLAY}" = "reference" ]; then
   echo ""
 
   # Wait for Keycloak to be ready
-  echo "Waiting for Keycloak deployment to be ready..."
-  timeout=300
-  elapsed=0
-  while [ $elapsed -lt $timeout ]; do
-    ready=$(oc get deployment keycloak -n redhat-ods-applications -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-    if [ "$ready" = "1" ]; then
-      echo "Keycloak is ready"
-      break
-    fi
-    echo "Ready replicas: ${ready}/1 (waiting...)"
-    sleep 5
-    elapsed=$((elapsed + 5))
-    if [ $elapsed -ge $timeout ]; then
-      echo "ERROR: Timeout waiting for Keycloak to be ready"
-      exit 1
-    fi
-  done
+  wait_for "Keycloak deployment" \
+    "[ \"\$(oc get deployment keycloak -n redhat-ods-applications -o jsonpath='{.status.readyReplicas}' 2>/dev/null)\" = '1' ]" \
+    300 5 || exit 1
 
   # Get Keycloak route
   echo ""
@@ -477,10 +298,10 @@ if [ "${OVERLAY}" = "reference" ]; then
   echo ""
   echo "To test authentication:"
   echo "  1. Get a token from Keycloak:"
-  echo "     KEYCLOAK_CLIENT_SECRET=<from setup output>"
+  echo "     KEYCLOAK_CLIENT_SECRET=\$(python3 scripts/secrets_util.py get KEYCLOAK_CLIENT_SECRET)"
   echo "     curl -X POST '${KEYCLOAK_URL:-https://keycloak-url}/realms/llamastack-demo/protocol/openid-connect/token' \\"
   echo "       -d 'client_id=llamastack' \\"
-  echo "       -d 'client_secret=\$KEYCLOAK_CLIENT_SECRET' \\"
+  echo "       -d 'client_secret='\$KEYCLOAK_CLIENT_SECRET \\"
   echo "       -d 'username=developer' \\"
   echo "       -d 'password=dev123' \\"
   echo "       -d 'grant_type=password'"
