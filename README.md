@@ -39,13 +39,15 @@ cp config.sh.example ~/.lls_showroom
 
 ## Run Demo
 
+After provisioning, URLs and credentials are automatically saved to `~/.lls_showroom_generated`:
+
 ```bash
-./scripts/rag-demo.py $LLAMA_STACK_URL $KEYCLOAK_URL $USERNAME $PASSWORD
+./scripts/rag-demo.py  # No arguments needed!
 ```
 
-Example:
+Or with explicit parameters:
 ```bash
-./scripts/rag-demo.py https://llamastack-distribution-redhat-ods-applications.apps.rosa.derekscluster.ij5f.p3.openshiftapps.com https://keycloak-redhat-ods-applications.apps.rosa.derekscluster.ij5f.p3.openshiftapps.com admin admin123
+./scripts/rag-demo.py <LLAMASTACK_URL> <KEYCLOAK_URL> <USERNAME> <PASSWORD>
 ```
 
 ## Cleanup

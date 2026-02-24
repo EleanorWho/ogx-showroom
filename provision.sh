@@ -245,6 +245,15 @@ if [ "${OVERLAY}" = "reference" ]; then
     echo "WARNING: Keycloak setup script not found at ${SCRIPT_DIR}/scripts/setup-keycloak.py"
     echo "You will need to configure Keycloak manually"
   fi
+
+  # Save URLs and demo credentials to secrets file for convenience
+  echo ""
+  echo "Saving configuration to ~/.lls_showroom_generated for easy demo access..."
+  [ -n "$ROUTE_URL" ] && python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set LLAMASTACK_URL "https://${ROUTE_URL}" 2>/dev/null || true
+  [ -n "$KEYCLOAK_URL" ] && python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_URL "${KEYCLOAK_URL}" 2>/dev/null || true
+  # Save default demo user credentials (admin/admin123)
+  python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_USERNAME "admin" 2>/dev/null || true
+  python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_PASSWORD "admin123" 2>/dev/null || true
 fi
 
 echo ""
@@ -309,5 +318,8 @@ if [ "${OVERLAY}" = "reference" ]; then
   echo "  2. Use the token with LlamaStack API:"
   echo "     TOKEN=<access_token from above>"
   echo "     curl -H 'Authorization: Bearer \$TOKEN' https://${ROUTE_URL:-llamastack-url}/v1/models"
+  echo ""
+  echo "To run the RAG demo (URLs and credentials stored in ~/.lls_showroom_generated):"
+  echo "  python3 scripts/rag-demo.py"
   echo ""
 fi
