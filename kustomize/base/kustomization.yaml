@@ -8,5 +8,9 @@ resources:
 - datasciencecluster.yaml
 - keycloak.yaml
 - postgres.yaml
+- etcd.yaml
+- etcd-networkpolicy.yaml
+- milvus.yaml
+- milvus-networkpolicy.yaml
 - networkpolicy.yaml
 - route.yaml
