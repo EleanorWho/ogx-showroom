@@ -1,13 +1,29 @@
-name: CI
+name: Showroom Validation
 
 on:
-  push:
+  pull_request:
     branches:
       - main
-
+  workflow_dispatch:
+    inputs:
+      catalog_image:
+        description: 'OLM catalog image (optional)'
+        required: false
+        type: string
+      llama_stack_image:
+        description: 'Llama Stack image (optional)'
+        required: false
+        type: string
+      operator_image:
+        description: 'Operator image (optional)'
+        required: false
+        type: string
 jobs:
   test:
     runs-on: ubuntu-latest
+    concurrency:
+      group: openshift-cluster-1
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,32 +32,93 @@ jobs:
         id: setup
         uses: ./
         with:
-          catalog_image: 'quay.io/rhoai/rhoai-fbc-fragment:rhoai-3.2'
+          catalog_image: ${{ inputs.catalog_image }}
+          llama_stack_image: ${{ inputs.llama_stack_image }}
+          operator_image: ${{ inputs.operator_image }}
           env: |
-            ENVIRONMENT=production
-            DEPLOY_DATE=${{ github.event.head_commit.timestamp }}
+            SHOWROOM_PULL_SECRET=${{ secrets.SHOWROOM_PULL_SECRET }}
+            SHOWROOM_VLLM_URL=https://llama-3-2-3b-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1
+            SHOWROOM_VLLM_API_TOKEN=${{ secrets.SHOWROOM_VLLM_API_TOKEN }}
+            SHOWROOM_VLLM_EMBEDDING_URL=https://nomic-embed-text-v1-5-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1
+            SHOWROOM_VLLM_EMBEDDING_API_TOKEN=${{ secrets.SHOWROOM_VLLM_EMBEDDING_API_TOKEN }}
 
-      - name: Provision
-        shell: bash
-        env:
-          ENV_FILE: ${{ steps.setup.outputs.env_file }}
+      - name: Login to OpenShift cluster
+        uses: redhat-actions/oc-login@v1
+        with:
+          openshift_server_url: ${{ secrets.OC_SERVER }}
+          openshift_token: ${{ secrets.OC_TOKEN }}
+
+      - name: Pre-flight cluster check
         run: |
-          chmod +x ${{ steps.setup.outputs.scripts_dir }}/provision.sh
+          echo "Checking if cluster is clean..."
+
+          MAX_WAIT=3600  # 1 hour in seconds
+          INTERVAL=60    # Check every 60 seconds
+          ELAPSED=0
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            CLUSTER_CLEAN=true
+
+            # Check for existing catalog
+            if oc get catalogsource rhoai-catalog -n openshift-marketplace 2>/dev/null; then
+              echo "⏳ rhoai-catalog exists - waiting for cleanup..."
+              CLUSTER_CLEAN=false
+            fi
+
+            # Check for operator namespace
+            if oc get namespace redhat-ods-operator 2>/dev/null; then
+              echo "⏳ redhat-ods-operator namespace exists - waiting for cleanup..."
+              CLUSTER_CLEAN=false
+            fi
+
+            # If cluster is clean, proceed
+            if [ "$CLUSTER_CLEAN" = true ]; then
+              echo "✓ Cluster is clean and ready"
+              exit 0
+            fi
+
+            # Wait and retry
+            echo "Cluster not clean. Waiting $INTERVAL seconds... (elapsed: ${ELAPSED}s / ${MAX_WAIT}s)"
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          # Timeout reached
+          echo "ERROR: Timeout waiting for cluster to be clean after $MAX_WAIT seconds"
+          echo "Cluster may still be in use by another job or have orphaned resources"
+          exit 1
+
+      - name: Run setup.sh
+        run: |
+          ${{ steps.setup.outputs.scripts_dir }}/setup.sh
+
+      - name: Run provision.sh
+        run: |
           ${{ steps.setup.outputs.scripts_dir }}/provision.sh
 
-      - name: Test
-        shell: bash
-        env:
-          ENV_FILE: ${{ steps.setup.outputs.env_file }}
+      - name: Run RAG demo
         run: |
-          chmod +x ${{ steps.setup.outputs.scripts_dir }}/test.sh
-          ${{ steps.setup.outputs.scripts_dir }}/test.sh
+          # Wait for services to be fully ready
+          echo "Waiting 15 seconds for services to stabilize..."
+          sleep 15
 
-      - name: Cleanup
+          # Get route URLs
+          LLAMASTACK_URL="https://$(oc get route llamastack-distribution -n redhat-ods-applications -o jsonpath='{.spec.host}')"
+          KEYCLOAK_URL="https://$(oc get route keycloak -n redhat-ods-applications -o jsonpath='{.spec.host}')"
+
+          # Run the demo with admin credentials
+          python3 ${{ steps.setup.outputs.scripts_dir }}/scripts/rag-demo.py \
+            "$LLAMASTACK_URL" \
+            "$KEYCLOAK_URL" \
+            admin \
+            admin123
+
+      - name: Run unprovision.sh
         if: always()
-        shell: bash
-        env:
-          ENV_FILE: ${{ steps.setup.outputs.env_file }}
         run: |
-          chmod +x ${{ steps.setup.outputs.scripts_dir }}/cleanup.sh
+          ${{ steps.setup.outputs.scripts_dir }}/unprovision.sh
+
+      - name: Run cleanup.sh
+        if: always()
+        run: |
           ${{ steps.setup.outputs.scripts_dir }}/cleanup.sh
