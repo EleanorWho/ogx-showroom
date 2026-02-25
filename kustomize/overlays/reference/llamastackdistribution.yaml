@@ -64,6 +64,27 @@ spec:
         value: "false"
       - name: MILVUS_CONSISTENCY_LEVEL
         value: "Strong"
+      # MinIO S3 Configuration for FileAPI
+      - name: ENABLE_S3
+        value: "true"
+      - name: S3_BUCKET_NAME
+        value: llamastack-files
+      - name: S3_ENDPOINT_URL
+        value: http://minio:9000
+      - name: AWS_ACCESS_KEY_ID
+        valueFrom:
+          secretKeyRef:
+            name: minio-secret
+            key: MINIO_ROOT_USER
+      - name: AWS_SECRET_ACCESS_KEY
+        valueFrom:
+          secretKeyRef:
+            name: minio-secret
+            key: MINIO_ROOT_PASSWORD
+      - name: S3_AUTO_CREATE_BUCKET
+        value: "true"
+      - name: AWS_DEFAULT_REGION
+        value: us-east-1
       name: llama-stack
       port: 8321
       resources:

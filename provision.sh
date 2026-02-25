@@ -155,6 +155,25 @@ while [ $elapsed -lt $timeout ]; do
   fi
 done
 
+echo ""
+echo "Waiting for MinIO to be ready..."
+timeout=300
+elapsed=0
+while [ $elapsed -lt $timeout ]; do
+  ready=$(oc get deployment minio -n redhat-ods-applications -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+  if [ "$ready" = "1" ]; then
+    echo "MinIO is ready"
+    break
+  fi
+  echo "Ready replicas: ${ready}/1 (waiting...)"
+  sleep 5
+  elapsed=$((elapsed + 5))
+  if [ $elapsed -ge $timeout ]; then
+    echo "ERROR: Timeout waiting for MinIO to be ready"
+    exit 1
+  fi
+done
+
 if ! wait_for "LlamaStackDistribution to be ready" \
   "[ \"\$(oc get llamastackdistribution llamastack-distribution -n redhat-ods-applications -o jsonpath='{.status.phase}' 2>/dev/null)\" = 'Ready' ]" \
   600 10; then
@@ -266,8 +285,10 @@ echo "  oc get datasciencecluster default-dsc"
 echo "  oc get deployment postgres -n redhat-ods-applications"
 echo "  oc get deployment etcd -n redhat-ods-applications"
 echo "  oc get deployment milvus -n redhat-ods-applications"
+echo "  oc get deployment minio -n redhat-ods-applications"
 echo "  oc get llamastackdistribution llamastack-distribution -n redhat-ods-applications"
 echo "  oc get route llamastack-distribution -n redhat-ods-applications"
+echo "  oc get route minio-console -n redhat-ods-applications"
 echo ""
 if [ -n "$ROUTE_URL" ]; then
   echo "LlamaStack API:"
@@ -289,6 +310,17 @@ echo ""
 echo "etcd connection details:"
 echo "  Host: etcd.redhat-ods-applications.svc.cluster.local"
 echo "  Port: 2379"
+echo ""
+echo "MinIO S3 Storage:"
+echo "  API Endpoint: http://minio.redhat-ods-applications.svc.cluster.local:9000"
+echo "  Console Port: 9001"
+MINIO_CONSOLE_URL=$(oc get route minio-console -n redhat-ods-applications -o jsonpath='{.spec.host}' 2>/dev/null || echo "")
+if [ -n "$MINIO_CONSOLE_URL" ]; then
+  echo "  Console URL: https://${MINIO_CONSOLE_URL}"
+fi
+echo "  Bucket: llamastack-files (auto-created)"
+echo "  Credentials: minioadmin / minioadmin123"
+echo "  Storage: 20Gi PVC (persistent)"
 echo ""
 # Show Keycloak information if using reference overlay
 if [ "${OVERLAY}" = "reference" ]; then
