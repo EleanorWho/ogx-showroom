@@ -10,22 +10,24 @@ This script demonstrates how to:
 5. Generate answers using chat completions
 
 Usage:
-    python scripts/rag-demo.py <LLAMASTACK_URL> [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]
+    python scripts/rag-demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]
 
-Example with config file:
-    source ~/.lls_showroom
-    python scripts/rag-demo.py https://llamastack-distribution-redhat-ods-applications.apps.example.com \
-        https://keycloak-redhat-ods-applications.apps.example.com \
+The script reads configuration from (in order): command line args, ~/.lls_showroom_generated,
+environment variables. All arguments are optional if stored in ~/.lls_showroom_generated.
+
+Example with no arguments (reads from ~/.lls_showroom_generated):
+    python scripts/rag-demo.py
+
+Example with URLs only:
+    python scripts/rag-demo.py https://llamastack-distribution.apps.example.com \
+        https://keycloak.apps.example.com
+
+Example with full authentication:
+    python scripts/rag-demo.py https://llamastack-distribution.apps.example.com \
+        https://keycloak.apps.example.com \
         developer dev123
 
-Example with explicit secret:
-    python scripts/rag-demo.py https://llamastack-distribution-redhat-ods-applications.apps.example.com \
-        https://keycloak-redhat-ods-applications.apps.example.com \
-        developer dev123 <client-secret>
-
-If Keycloak parameters are not provided, the script will attempt to run without authentication.
-The client secret is read from (in order): command line argument, persistent secrets file,
-KEYCLOAK_CLIENT_SECRET env var, or auto-generated if not found.
+If Keycloak parameters are not provided, the script will run without authentication.
 
 Note: This is a simplified demo. For production RAG, consider using vector databases
 with the LlamaStack vector-io API or vector_stores endpoints.
@@ -44,10 +46,12 @@ SCRIPT_DIR = Path(__file__).parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 try:
-    from secrets_util import get_or_set
+    from secrets_util import get_or_set, get
 except ImportError:
     # Fallback if secrets_util is not available
     def get_or_set(key: str, default: Optional[str] = None, **kwargs) -> Optional[str]:
+        return default or os.environ.get(key)
+    def get(key: str, default: Optional[str] = None, **kwargs) -> Optional[str]:
         return default or os.environ.get(key)
 
 
@@ -299,30 +303,48 @@ class LlamaStackDemo:
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python scripts/rag-demo.py <LLAMASTACK_URL> [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]")
-        print("\nExample without authentication:")
-        print("  python scripts/rag-demo.py https://llamastack-distribution-redhat-ods-applications.apps.example.com")
-        print("\nExample with Keycloak authentication using config file:")
-        print("  source ~/.lls_showroom")
-        print("  python scripts/rag-demo.py https://llamastack-distribution-redhat-ods-applications.apps.example.com \\")
-        print("      https://keycloak-redhat-ods-applications.apps.example.com \\")
-        print("      developer dev123")
-        print("\nExample with explicit client secret:")
-        print("  python scripts/rag-demo.py https://llamastack-distribution-redhat-ods-applications.apps.example.com \\")
-        print("      https://keycloak-redhat-ods-applications.apps.example.com \\")
-        print("      developer dev123 <client-secret>")
-        print("\nNote: Client secret is automatically stored in ~/.lls_showroom_generated after provision.sh")
-        sys.exit(1)
+    # Read configuration from command line args, secrets file, or environment variables
+    # Priority: command line > secrets file > environment variables
 
-    llamastack_url = sys.argv[1]
+    llamastack_url = sys.argv[1] if len(sys.argv) > 1 else None
+    if not llamastack_url:
+        # Try secrets file, then env var
+        llamastack_url = get('LLAMASTACK_URL') or os.environ.get('LLAMASTACK_URL')
+
     keycloak_url = sys.argv[2] if len(sys.argv) > 2 else None
+    if not keycloak_url:
+        # Try secrets file, then env var
+        keycloak_url = get('KEYCLOAK_URL') or os.environ.get('KEYCLOAK_URL')
+
     username = sys.argv[3] if len(sys.argv) > 3 else None
+    if not username:
+        username = get('KEYCLOAK_USERNAME') or os.environ.get('KEYCLOAK_USERNAME')
+
     password = sys.argv[4] if len(sys.argv) > 4 else None
+    if not password:
+        password = get('KEYCLOAK_PASSWORD') or os.environ.get('KEYCLOAK_PASSWORD')
 
     # Get client secret from command line or persistent storage
     # get_or_set checks: secrets file, env var, then generates if needed
-    client_secret = sys.argv[5] if len(sys.argv) > 5 else get_or_set('KEYCLOAK_CLIENT_SECRET')
+    client_secret = sys.argv[5] if len(sys.argv) > 5 else None
+    if not client_secret:
+        client_secret = get_or_set('KEYCLOAK_CLIENT_SECRET')
+
+    # Validate that we have at least the LlamaStack URL
+    if not llamastack_url:
+        print("Error: LLAMASTACK_URL is required")
+        print("\nUsage: python scripts/rag-demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]")
+        print("\nExamples:")
+        print("  # Run with stored configuration from ~/.lls_showroom_generated:")
+        print("  python scripts/rag-demo.py")
+        print("\n  # Run with explicit URLs:")
+        print("  python scripts/rag-demo.py https://llamastack-distribution.apps.example.com \\")
+        print("      https://keycloak.apps.example.com")
+        print("\n  # Run with full authentication:")
+        print("  python scripts/rag-demo.py https://llamastack-distribution.apps.example.com \\")
+        print("      https://keycloak.apps.example.com developer dev123")
+        print("\nNote: URLs and credentials are automatically stored in ~/.lls_showroom_generated after provision.sh")
+        sys.exit(1)
 
     print("=" * 60)
     print("LlamaStack Chat and Embeddings Demo")
