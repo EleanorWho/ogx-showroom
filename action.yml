@@ -14,19 +14,63 @@ inputs:
     required: false
     default: ''
   env:
-    description: 'Environment variables (multiline)'
+    description: 'Environment variables in KEY=value format (multiline). Use this for secrets and config like SHOWROOM_PULL_SECRET, SHOWROOM_VLLM_URL, etc.'
     required: false
     default: ''
 outputs:
   scripts_dir:
     description: 'Directory containing provision.sh, test.sh, cleanup.sh'
     value: ${{ steps.setup.outputs.scripts_dir }}
-  env_file:
-    description: 'Path to file containing environment variables'
-    value: ${{ steps.setup.outputs.env_file }}
 runs:
   using: 'composite'
   steps:
+    - name: Install OpenShift CLI
+      shell: bash
+      run: |
+        # Download and install oc CLI
+        OC_VERSION="4.19.24"
+        curl -L "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VERSION}/openshift-client-linux.tar.gz" -o /tmp/oc.tar.gz
+        tar -xzf /tmp/oc.tar.gz -C /tmp
+        sudo mv /tmp/oc /usr/local/bin/
+        sudo chmod +x /usr/local/bin/oc
+        oc version --client
+
+    - name: Prepare config file
+      shell: bash
+      env:
+        CATALOG_IMAGE: ${{ inputs.catalog_image }}
+        LLAMA_STACK_IMAGE: ${{ inputs.llama_stack_image }}
+        OPERATOR_IMAGE: ${{ inputs.operator_image }}
+        ENV_VARS: ${{ inputs.env }}
+      run: |
+        # Copy config.sh.example to ~/.lls_showroom (overwrite if exists)
+        cp ${{ github.action_path }}/config.sh.example ~/.lls_showroom
+
+        # Append action input parameters as exported env variables
+        echo "" >> ~/.lls_showroom
+        echo "# CI Configuration" >> ~/.lls_showroom
+
+        if [ -n "$CATALOG_IMAGE" ]; then
+          echo "export SHOWROOM_CATALOG_IMAGE=\"$CATALOG_IMAGE\"" >> ~/.lls_showroom
+        fi
+
+        if [ -n "$LLAMA_STACK_IMAGE" ]; then
+          echo "export SHOWROOM_LLAMA_STACK_IMAGE=\"$LLAMA_STACK_IMAGE\"" >> ~/.lls_showroom
+        fi
+
+        if [ -n "$OPERATOR_IMAGE" ]; then
+          echo "export SHOWROOM_OPERATOR_IMAGE=\"$OPERATOR_IMAGE\"" >> ~/.lls_showroom
+        fi
+
+        # Append environment variables (secrets and config)
+        if [ -n "$ENV_VARS" ]; then
+          while IFS= read -r line; do
+            if [ -n "$line" ]; then
+              echo "export $line" >> ~/.lls_showroom
+            fi
+          done <<< "$ENV_VARS"
+        fi
+
     - name: Setup runner environment
       id: setup
       shell: bash
@@ -37,8 +81,4 @@ runs:
         ENV_VARS: ${{ inputs.env }}
       run: |
         chmod +x ${{ github.action_path }}/setup.sh
-        ENV_FILE="/tmp/ci_env_$(date +%s).sh"
-        export ENV_FILE
-        ${{ github.action_path }}/setup.sh
         echo "scripts_dir=${{ github.action_path }}" >> $GITHUB_OUTPUT
-        echo "env_file=$ENV_FILE" >> $GITHUB_OUTPUT
