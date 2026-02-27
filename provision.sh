@@ -12,6 +12,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Default overlay
 OVERLAY="${1:-reference}"
 
+# Source configuration early to check for custom images
+CONFIG_FILE="${HOME}/.lls_showroom"
+if [ -f "${CONFIG_FILE}" ]; then
+  # shellcheck source=/dev/null
+  source "${CONFIG_FILE}"
+fi
+
+# Clean up dev image Kyverno policy if it exists and no custom image is configured
+if oc get clusterpolicy replace-rhoai-llama-stack-images &>/dev/null; then
+  if [ -z "${SHOWROOM_LLAMA_STACK_IMAGE:-}" ] && [ -z "${SHOWROOM_OPERATOR_IMAGE:-}" ]; then
+    echo "Removing dev image Kyverno policy (no custom images configured)..."
+    oc delete clusterpolicy replace-rhoai-llama-stack-images 2>/dev/null || true
+    echo "Dev image policy removed. Will use official images."
+    echo ""
+  fi
+fi
+
 # Generic wait function - waits for a command to succeed
 wait_for() {
   local description="$1"
@@ -34,13 +51,6 @@ wait_for() {
   echo "ERROR: Timeout waiting for ${description}"
   return 1
 }
-
-# Source configuration if available
-CONFIG_FILE="${HOME}/.lls_showroom"
-if [ -f "${CONFIG_FILE}" ]; then
-  # shellcheck source=/dev/null
-  source "${CONFIG_FILE}"
-fi
 
 echo "Configuration:"
 echo "  Overlay: ${OVERLAY}"

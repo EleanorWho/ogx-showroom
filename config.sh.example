@@ -44,3 +44,29 @@ export SHOWROOM_VLLM_EMBEDDING_API_TOKEN="${SHOWROOM_VLLM_EMBEDDING_API_TOKEN:-}
 export SHOWROOM_EMBEDDING_MODEL="${SHOWROOM_EMBEDDING_MODEL:-nomic-embed-text-v1.5}"
 export SHOWROOM_EMBEDDING_PROVIDER_MODEL_ID="${SHOWROOM_EMBEDDING_PROVIDER_MODEL_ID:-nomic-ai/nomic-embed-text-v1.5}"
 export SHOWROOM_EMBEDDING_DIMENSION="${SHOWROOM_EMBEDDING_DIMENSION:-768}"
+
+# ======================================
+# Deploy Local Changes Configuration
+# ======================================
+# Use ./deploy-local.sh to deploy local LlamaStack changes to the cluster
+# See README.md for detailed documentation
+
+# Path to local llama-stack repository
+# Example: export LLAMA_STACK_SOURCE_PATH=~/projects/llama-stack
+export LLAMA_STACK_SOURCE_PATH="${LLAMA_STACK_SOURCE_PATH:-}"
+
+# Dev image namespace (namespace to store images in the in-cluster registry)
+# Default: redhat-ods-applications (where LlamaStack runs)
+export DEV_IMAGE_NAMESPACE="${DEV_IMAGE_NAMESPACE:-redhat-ods-applications}"
+
+# Dev image name
+export DEV_IMAGE_NAME="${DEV_IMAGE_NAME:-llama-stack-dev}"
+
+# Dev image tag (auto-generated with timestamp if not set)
+# export DEV_IMAGE_TAG="${DEV_IMAGE_TAG:-dev-$(date +%Y%m%d-%H%M%S)}"
+
+# Base image for dev builds (auto-detected from operator if empty)
+export DEV_BASE_IMAGE="${DEV_BASE_IMAGE:-}"
+
+# Container tool to use (podman or docker)
+export CONTAINER_TOOL="${CONTAINER_TOOL:-podman}"
