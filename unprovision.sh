@@ -30,6 +30,16 @@ oc delete service milvus -n redhat-ods-applications --ignore-not-found=true
 oc delete pvc milvus-pvc -n redhat-ods-applications --ignore-not-found=true
 oc delete networkpolicy milvus-allow-ingress -n redhat-ods-applications --ignore-not-found=true
 
+# Delete MinIO
+echo "Removing MinIO..."
+oc delete deployment minio -n redhat-ods-applications --ignore-not-found=true --timeout=60s
+oc delete service minio -n redhat-ods-applications --ignore-not-found=true
+oc delete route minio-console -n redhat-ods-applications --ignore-not-found=true
+oc delete pvc minio-pvc -n redhat-ods-applications --ignore-not-found=true
+oc delete secret minio-secret -n redhat-ods-applications --ignore-not-found=true
+oc delete networkpolicy minio-allow-ingress -n redhat-ods-applications --ignore-not-found=true
+echo "  Note: All files stored in MinIO have been permanently deleted"
+
 # Delete etcd
 echo "Removing etcd..."
 oc delete deployment etcd -n redhat-ods-applications --ignore-not-found=true --timeout=60s

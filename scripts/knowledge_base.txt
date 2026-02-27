@@ -1,0 +1,9 @@
+Red Hat OpenShift AI is a flexible, scalable AI/ML platform that enables data scientists and developers to build, deploy, and monitor AI-enabled applications. It provides tools for the full machine learning lifecycle.
+
+LlamaStack is an open-source framework that provides standardized APIs for building AI applications. It supports various AI capabilities including inference, RAG (Retrieval-Augmented Generation), and agent-based workflows.
+
+The RAG (Retrieval-Augmented Generation) pattern combines vector search with large language models to provide contextually relevant answers. Documents are embedded into vectors, stored in a vector database, and retrieved to augment LLM prompts.
+
+Vector databases like Milvus store high-dimensional embeddings and enable similarity search. They are essential for RAG applications, allowing efficient retrieval of relevant documents based on semantic similarity.
+
+Red Hat OpenShift AI integrates with various open-source tools including Jupyter notebooks, TensorFlow, PyTorch, and provides enterprise-grade security, scalability, and support for production AI workloads.

@@ -12,5 +12,8 @@ resources:
 - etcd-networkpolicy.yaml
 - milvus.yaml
 - milvus-networkpolicy.yaml
+- minio.yaml
+- minio-networkpolicy.yaml
+- minio-route.yaml
 - networkpolicy.yaml
 - route.yaml

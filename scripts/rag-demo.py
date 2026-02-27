@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """
-LlamaStack Chat and Embeddings Demo
+LlamaStack Chat and Embeddings Demo with S3-Backed File Storage
 
 This script demonstrates how to:
 1. Authenticate with Keycloak to get a JWT token
-2. List available models (inference and embedding)
-3. Generate embeddings for documents
-4. Perform simple semantic search
-5. Generate answers using chat completions
+2. Upload files to FileAPI (stored in MinIO/S3)
+3. Retrieve file contents from S3
+4. List available models (inference and embedding)
+5. Generate embeddings for documents
+6. Create vector stores and insert embeddings
+7. Perform semantic search queries
+8. Generate answers using chat completions with RAG
 
 Usage:
     python scripts/rag-demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]
@@ -29,8 +32,8 @@ Example with full authentication:
 
 If Keycloak parameters are not provided, the script will run without authentication.
 
-Note: This is a simplified demo. For production RAG, consider using vector databases
-with the LlamaStack vector-io API or vector_stores endpoints.
+Note: This demo uses the LlamaStack FileAPI with MinIO S3 backend for document storage
+and the vector-io API with Milvus for vector storage.
 """
 
 import sys
@@ -115,6 +118,32 @@ class LlamaStackDemo:
         except Exception as e:
             print(f"✗ Health check failed: {e}")
             return False
+
+    def upload_file(self, file_path: str, purpose: str = "assistants") -> Optional[str]:
+        """Upload a file to FileAPI (stored in S3/MinIO) and return the file ID"""
+        try:
+            with open(file_path, 'rb') as f:
+                files = {'file': (os.path.basename(file_path), f)}
+                data = {'purpose': purpose}
+                response = self.session.post(f"{self.base_url}/v1/files", files=files, data=data)
+                response.raise_for_status()
+                result = response.json()
+                file_id = result.get('id')
+                print(f"  ✓ Uploaded: {os.path.basename(file_path)} (ID: {file_id})")
+                return file_id
+        except Exception as e:
+            print(f"  ✗ Upload failed for {file_path}: {e}")
+            return None
+
+    def get_file_content(self, file_id: str) -> Optional[str]:
+        """Retrieve file content from FileAPI (reads from S3/MinIO)"""
+        try:
+            response = self.session.get(f"{self.base_url}/v1/files/{file_id}/content")
+            response.raise_for_status()
+            return response.text
+        except Exception as e:
+            print(f"  ✗ Failed to retrieve file {file_id}: {e}")
+            return None
 
     def list_models(self) -> List[Dict[str, Any]]:
         """List available models"""
@@ -365,37 +394,79 @@ def main():
     # List available models
     models = demo.list_models()
 
-    # Sample documents about Red Hat OpenShift AI
-    documents = [
-        {
-            "content": "Red Hat OpenShift AI is a flexible, scalable AI/ML platform that enables data scientists and developers to build, deploy, and monitor AI-enabled applications. It provides tools for the full machine learning lifecycle.",
-            "metadata": {"source": "rhoai_overview", "topic": "platform"}
-        },
-        {
-            "content": "LlamaStack is an open-source framework that provides standardized APIs for building AI applications. It supports various AI capabilities including inference, RAG (Retrieval-Augmented Generation), and agent-based workflows.",
-            "metadata": {"source": "llamastack_intro", "topic": "framework"}
-        },
-        {
-            "content": "The RAG (Retrieval-Augmented Generation) pattern combines vector search with large language models to provide contextually relevant answers. Documents are embedded into vectors, stored in a vector database, and retrieved to augment LLM prompts.",
-            "metadata": {"source": "rag_explanation", "topic": "rag"}
-        },
-        {
-            "content": "Vector databases like Milvus store high-dimensional embeddings and enable similarity search. They are essential for RAG applications, allowing efficient retrieval of relevant documents based on semantic similarity.",
-            "metadata": {"source": "vector_db_info", "topic": "vector_database"}
-        },
-        {
-            "content": "Red Hat OpenShift AI integrates with various open-source tools including Jupyter notebooks, TensorFlow, PyTorch, and provides enterprise-grade security, scalability, and support for production AI workloads.",
-            "metadata": {"source": "rhoai_features", "topic": "platform"}
-        }
+    # Load sample document from scripts directory
+    knowledge_base_file = SCRIPT_DIR / "knowledge_base.txt"
+
+    if not knowledge_base_file.exists():
+        print(f"\n✗ Sample document not found: {knowledge_base_file}")
+        print("  Please create knowledge_base.txt in scripts/")
+        sys.exit(1)
+
+    print(f"\nFound sample knowledge base document: {knowledge_base_file.name}")
+
+    # Step 1: Upload file to FileAPI (stored in MinIO S3)
+    print("\n" + "=" * 60)
+    print("Step 1: Uploading Document to FileAPI (MinIO S3 Backend)")
+    print("=" * 60)
+
+    file_id = demo.upload_file(str(knowledge_base_file))
+    if not file_id:
+        print("\n✗ Failed to upload document. Exiting.")
+        sys.exit(1)
+
+    print(f"\n✓ Successfully uploaded document to MinIO S3")
+    print("  File is stored in the 'llamastack-files' bucket")
+
+    # Step 2: Retrieve file content from S3
+    print("\n" + "=" * 60)
+    print("Step 2: Retrieving File Content from S3")
+    print("=" * 60)
+
+    print(f"  Retrieving: {knowledge_base_file.name}")
+    content = demo.get_file_content(file_id)
+    if not content:
+        print("\n✗ Failed to retrieve document from S3. Exiting.")
+        sys.exit(1)
+
+    print(f"\n✓ Retrieved document from S3 storage ({len(content)} characters)")
+
+    # Step 3: Split content into document chunks for RAG
+    print("\n" + "=" * 60)
+    print("Step 3: Chunking Document for Knowledge Base")
+    print("=" * 60)
+
+    # Split by paragraphs (double newline)
+    paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
+
+    # Define metadata for each chunk based on content
+    chunk_metadata = [
+        {"source": "rhoai_overview", "topic": "platform"},
+        {"source": "llamastack_intro", "topic": "framework"},
+        {"source": "rag_explanation", "topic": "rag"},
+        {"source": "vector_db_info", "topic": "vector_database"},
+        {"source": "rhoai_features", "topic": "platform"}
     ]
 
+    documents = []
+    for i, paragraph in enumerate(paragraphs):
+        metadata = chunk_metadata[i] if i < len(chunk_metadata) else {"source": f"chunk_{i}", "topic": "general"}
+        metadata["file_id"] = file_id
+        metadata["storage"] = "s3-minio"
+        documents.append({
+            "content": paragraph,
+            "metadata": metadata
+        })
+
+    print(f"\n✓ Split document into {len(documents)} chunks for knowledge base")
+
     print("\n" + "=" * 60)
-    print("Creating Knowledge Base Embeddings")
+    print("Step 4: Creating Knowledge Base Embeddings")
     print("=" * 60)
-    print(f"\nDocuments in knowledge base:")
+    print(f"\nDocuments in knowledge base (from S3):")
     for i, doc in enumerate(documents, 1):
         preview = doc['content'][:80] + "..." if len(doc['content']) > 80 else doc['content']
-        print(f"  {i}. {preview}")
+        source = doc['metadata'].get('source', 'unknown')
+        print(f"  {i}. [{source}] {preview}")
 
     # Generate embeddings for all documents
     doc_texts = [doc['content'] for doc in documents]
@@ -407,7 +478,7 @@ def main():
 
     # Create vector store and insert document embeddings
     print("\n" + "=" * 60)
-    print("Setting up Vector Store")
+    print("Step 5: Setting up Vector Store (Milvus)")
     print("=" * 60)
 
     vector_store_id = demo.create_vector_store("rag-demo-kb", embedding_dimension=768)
@@ -428,7 +499,7 @@ def main():
     ]
 
     print("\n" + "=" * 60)
-    print("Semantic Search and Q&A Examples")
+    print("Step 6: RAG Pipeline - Semantic Search and Q&A")
     print("=" * 60)
 
     for i, query in enumerate(queries, 1):
@@ -462,16 +533,22 @@ def main():
             print("\n✗ Failed to generate answer")
 
     print("\n" + "=" * 60)
-    print("Demo Complete!")
+    print("✅ Demo Complete!")
     print("=" * 60)
-    print("\nThis demo showed:")
-    print("  1. Model discovery (inference and embedding models)")
-    print("  2. Generating embeddings for documents")
-    print("  3. Creating a vector store using LlamaStack vector_io API")
-    print("  4. Inserting vectors into Milvus for persistent storage")
-    print("  5. Semantic search using Milvus vector similarity")
-    print("  6. Context-aware question answering with chat completions")
-    print("\nTo run your own queries, modify the 'queries' list in the script.")
+    print("\nThis demo showed the complete S3-backed RAG pipeline:")
+    print("  1. ✓ Uploaded document to FileAPI (stored in MinIO S3)")
+    print("  2. ✓ Retrieved file content from S3 storage")
+    print("  3. ✓ Chunked document into multiple text segments")
+    print("  4. ✓ Generated embeddings for document chunks")
+    print("  5. ✓ Created a vector store using LlamaStack vector_io API")
+    print("  6. ✓ Inserted vectors into Milvus for persistent storage")
+    print("  7. ✓ Semantic search using Milvus vector similarity")
+    print("  8. ✓ Context-aware question answering with chat completions")
+    print("\nVerification:")
+    print("  - Check MinIO console to see uploaded file in 'llamastack-files' bucket")
+    print("  - File is persistently stored in S3 and can be reused")
+    print("  - Vector embeddings are indexed in Milvus for fast retrieval")
+    print("\nTo run your own queries, modify the 'queries' or 'knowledge_base.txt' in scripts/.")
 
 
 if __name__ == "__main__":
