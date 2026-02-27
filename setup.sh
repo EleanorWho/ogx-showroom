@@ -330,6 +330,9 @@ echo "Extracting config from: ${CONFIG_IMAGE}"
 echo ""
 
 # Extract config.yaml using a temporary pod
+# Clean up any existing pod first (in case of previous failed runs)
+oc delete pod temp-config-extractor -n redhat-ods-operator --force --grace-period=0 --ignore-not-found=true 2>/dev/null || true
+
 # Note: --rm outputs deletion message to stdout, so we filter it out
 if oc run temp-config-extractor \
   --image="${CONFIG_IMAGE}" \
