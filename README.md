@@ -2,12 +2,18 @@
 
 Reference architecture and CI for [Llama Stack](https://github.com/meta-llama/llama-stack) on Red Hat OpenShift AI (RHOAI).
 
+## Status
+
+**Work in Progress** - This repository is actively evolving toward a production-ready reference architecture for Llama Stack on RHOAI. While core functionality is operational (deployment, authentication, RAG demos), we're continuously expanding components, refining kustomize overlays, and adding demo scripts to showcase Llama Stack capabilities in action.
+
 ## Purpose
 
 1. **Reference Architecture**: Production-ready deployment of Llama Stack using RHOAI components (VLLM, PostgreSQL, Milvus, Keycloak)
 2. **Automated Testing**: CI that validates deployments with example client scripts
 3. **Integration Testing**: Test RHOAI/ODH/upstream Llama Stack images through GitHub Actions
 4. **Demo Scripts**: Reusable examples (RAG, authentication) for downstream projects
+
+> **Note**: Documentation is intentionally kept minimal during early development to avoid rapid obsolescence. Use LLMs to explore the codebase and understand usage patterns.
 
 ## Architecture
 
@@ -72,5 +78,3 @@ Contributions welcome in:
 - Additional demo scripts (reuse from [llama-stack-demos](https://github.com/opendatahub-io/llama-stack-demos))
 - Kustomize overlays to work towards a single refarch
 - CI/CD improvements and test coverage
-
-See `scripts/README.md` for detailed demo documentation.
