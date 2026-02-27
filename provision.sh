@@ -117,62 +117,19 @@ wait_for "PostgreSQL deployment" \
   300 5 || exit 1
 
 echo ""
-
-echo "Waiting for etcd to be ready..."
-timeout=300
-elapsed=0
-while [ $elapsed -lt $timeout ]; do
-  ready=$(oc get deployment etcd -n redhat-ods-applications -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-  if [ "$ready" = "1" ]; then
-    echo "etcd is ready"
-    break
-  fi
-  echo "Ready replicas: ${ready}/1 (waiting...)"
-  sleep 5
-  elapsed=$((elapsed + 5))
-  if [ $elapsed -ge $timeout ]; then
-    echo "ERROR: Timeout waiting for etcd to be ready"
-    exit 1
-  fi
-done
+wait_for "etcd deployment" \
+  "[ \"\$(oc get deployment etcd -n redhat-ods-applications -o jsonpath='{.status.readyReplicas}' 2>/dev/null)\" = '1' ]" \
+  300 5 || exit 1
 
 echo ""
-echo "Waiting for Milvus to be ready..."
-timeout=300
-elapsed=0
-while [ $elapsed -lt $timeout ]; do
-  ready=$(oc get deployment milvus -n redhat-ods-applications -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-  if [ "$ready" = "1" ]; then
-    echo "Milvus is ready"
-    break
-  fi
-  echo "Ready replicas: ${ready}/1 (waiting...)"
-  sleep 5
-  elapsed=$((elapsed + 5))
-  if [ $elapsed -ge $timeout ]; then
-    echo "ERROR: Timeout waiting for Milvus to be ready"
-    exit 1
-  fi
-done
+wait_for "Milvus deployment" \
+  "[ \"\$(oc get deployment milvus -n redhat-ods-applications -o jsonpath='{.status.readyReplicas}' 2>/dev/null)\" = '1' ]" \
+  300 5 || exit 1
 
 echo ""
-echo "Waiting for MinIO to be ready..."
-timeout=300
-elapsed=0
-while [ $elapsed -lt $timeout ]; do
-  ready=$(oc get deployment minio -n redhat-ods-applications -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-  if [ "$ready" = "1" ]; then
-    echo "MinIO is ready"
-    break
-  fi
-  echo "Ready replicas: ${ready}/1 (waiting...)"
-  sleep 5
-  elapsed=$((elapsed + 5))
-  if [ $elapsed -ge $timeout ]; then
-    echo "ERROR: Timeout waiting for MinIO to be ready"
-    exit 1
-  fi
-done
+wait_for "MinIO deployment" \
+  "[ \"\$(oc get deployment minio -n redhat-ods-applications -o jsonpath='{.status.readyReplicas}' 2>/dev/null)\" = '1' ]" \
+  300 5 || exit 1
 
 if ! wait_for "LlamaStackDistribution to be ready" \
   "[ \"\$(oc get llamastackdistribution llamastack-distribution -n redhat-ods-applications -o jsonpath='{.status.phase}' 2>/dev/null)\" = 'Ready' ]" \
