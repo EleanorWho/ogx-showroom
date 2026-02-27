@@ -20,18 +20,17 @@
 # IMAGE pull secret
 export SHOWROOM_PULL_SECRET="${SHOWROOM_PULL_SECRET:-}"
 
-# RHOAI catalog image
-export SHOWROOM_CATALOG_IMAGE="${SHOWROOM_CATALOG_IMAGE:-quay.io/rhoai/rhoai-fbc-fragment:rhoai-3.3}"
+# RHOAI catalog image and channel
+# Available channels: alpha, beta, fast, fast-3.x, stable, stable-3.x, stable-3.3, eus-2.25, etc.
+export SHOWROOM_CATALOG_IMAGE="${SHOWROOM_CATALOG_IMAGE:-quay.io/rhoai/rhoai-fbc-fragment:rhoai-3.4-ea.1}"
+export SHOWROOM_OPERATOR_CHANNEL="${SHOWROOM_OPERATOR_CHANNEL:-beta}"
+
 
 # Llama Stack custom image (optional - set to override default)
 export SHOWROOM_LLAMA_STACK_IMAGE="${SHOWROOM_LLAMA_STACK_IMAGE:-}"
 
 # Operator custom image (optional - set to override default)
 export SHOWROOM_OPERATOR_IMAGE="${SHOWROOM_OPERATOR_IMAGE:-}"
-
-# Operator channel (default: stable-3.3)
-# Available channels: alpha, beta, fast, fast-3.x, stable, stable-3.x, stable-3.3, eus-2.25, etc.
-export SHOWROOM_OPERATOR_CHANNEL="${SHOWROOM_OPERATOR_CHANNEL:-stable-3.3}"
 
 # VLLM Inference configuration
 export SHOWROOM_VLLM_URL="${SHOWROOM_VLLM_URL:-}"
