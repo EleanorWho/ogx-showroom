@@ -53,6 +53,16 @@ oc delete clusterpolicy sync-secrets --ignore-not-found=true
 oc delete clusterpolicy add-imagepullsecrets --ignore-not-found=true
 oc delete clusterpolicy replace-image-registry --ignore-not-found=true
 
+# Clean up auto-created DSCInitialization (must be done before deleting CRDs)
+# DSCInitialization is cluster-scoped and auto-created by the operator on startup
+# Note: DataScienceCluster is created by provision.sh and should be removed by unprovision.sh
+echo "Removing auto-created DSCInitialization..."
+for dsci in $(oc get dscinitializations -o name 2>/dev/null); do
+  echo "  Removing finalizers from ${dsci}..."
+  oc patch ${dsci} --type json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+  oc delete ${dsci} --ignore-not-found=true 2>/dev/null || true
+done
+
 # Clean up RHOAI CRDs to avoid version conflicts on reinstall
 echo "Removing RHOAI CRDs..."
 oc delete crd \
