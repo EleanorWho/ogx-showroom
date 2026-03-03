@@ -337,7 +337,7 @@ oc delete pod temp-config-extractor -n redhat-ods-operator --force --grace-perio
 if oc run temp-config-extractor \
   --image="${CONFIG_IMAGE}" \
   --restart=Never --rm -i --command -- cat /opt/app-root/config.yaml 2>&1 | \
-  grep -v "pod \"temp-config-extractor\" deleted" > "${SCRIPT_DIR}/config_base.yaml"; then
+  grep -v -e "pod \"temp-config-extractor\" deleted" -e "Warning:" > "${SCRIPT_DIR}/config_base.yaml"; then
   echo "Config extracted successfully to ${SCRIPT_DIR}/config_base.yaml"
 else
   echo "Warning: Failed to extract config.yaml"
