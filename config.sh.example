@@ -14,10 +14,20 @@
 #    source ~/.lls_showroom
 #    python scripts/rag-demo.py <ARGS>
 #
-# REQUIRED: SHOWROOM_PULL_SECRET (for setup.sh)
-#
 
-# IMAGE pull secret
+
+# REQUIRED: SHOWROOM_PULL_SECRET
+#
+# Instructions for getting a pull secret:
+# 1. Go to quay.io and login
+# 2. Top right -> Account Settings -> User Settings -> "CLI Password: Generate Encrypted Password"
+# 3. Get a podman login command, e.g.:
+#    podman login -u='higginsd' -p='A...A' quay.io
+# 4. Update the command to add --authfile /tmp/ps.json:
+#    podman login --authfile /tmp/ps.json -u='higginsd' -p='A...A' quay.io
+# 5. Run the command, then extract the base64-encoded auth:
+#    cat /tmp/ps.json | jq -r '.auths["quay.io"].auth'
+# 6. Set SHOWROOM_PULL_SECRET to the output from step 5
 export SHOWROOM_PULL_SECRET="${SHOWROOM_PULL_SECRET:-}"
 
 # RHOAI catalog image and channel

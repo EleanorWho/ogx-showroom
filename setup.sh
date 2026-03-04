@@ -78,6 +78,36 @@ if [ -z "${SHOWROOM_PULL_SECRET}" ]; then
     exit 1
 fi
 
+# Validate podman is installed for pull secret testing
+if ! command -v podman &> /dev/null; then
+    echo "ERROR: podman is required for pull secret validation but not installed"
+    echo "Install podman: dnf install podman"
+    exit 1
+fi
+
+# Test that the pull secret can actually pull images from quay.io
+echo "Validating pull secret by testing image pull from quay.io..."
+AUTH_TEST_FILE=$(mktemp)
+trap 'rm -f ${AUTH_TEST_FILE}' EXIT
+
+# Create a temporary auth file with the pull secret
+echo "{\"auths\":{\"quay.io\":{\"auth\":\"${SHOWROOM_PULL_SECRET}\"}}}" > "${AUTH_TEST_FILE}"
+
+# Test with the catalog image that will be used
+TEST_IMAGE="${SHOWROOM_CATALOG_IMAGE}"
+echo "Testing pull access to ${TEST_IMAGE}..."
+
+if ! podman pull --authfile="${AUTH_TEST_FILE}" "${TEST_IMAGE}" &>/dev/null; then
+    echo ""
+    echo "ERROR: Failed to pull image from quay.io with configured pull secret"
+    echo "Image: ${TEST_IMAGE}"
+    echo ""
+    echo "Please verify your SHOWROOM_PULL_SECRET is correct and has access to the required images."
+    echo "See instructions in config.sh.example for how to generate a valid pull secret."
+    exit 1
+fi
+
+echo "Successfully validated pull secret (image pulled and cached)"
 echo "Using credentials from ${CONFIG_FILE} (SHOWROOM_PULL_SECRET)"
 
 TMP_DIR=$(mktemp -d)
