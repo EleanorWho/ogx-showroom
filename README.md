@@ -56,6 +56,69 @@ Or with explicit parameters:
 ./scripts/rag-demo.py <LLAMASTACK_URL> <KEYCLOAK_URL> <USERNAME> <PASSWORD>
 ```
 
+## Deploy Local Changes
+
+Test local LlamaStack code changes on the cluster for rapid iteration.
+
+### Quick Start
+
+```bash
+# 1. Clone llama-stack locally
+git clone https://github.com/meta-llama/llama-stack ~/llama-stack
+
+# 2. Configure
+echo "export LLAMA_STACK_SOURCE_PATH=~/llama-stack" >> ~/.lls_showroom
+
+# 3. Deploy your changes
+./deploy-local.sh
+# → Builds image, pushes to in-cluster registry, restarts pod, shows logs
+
+# 4. Test your changes
+curl https://$(oc get route llamastack-distribution -o jsonpath='{.spec.host}')/v1/health
+
+# 5. Revert to official image when done
+./provision.sh
+```
+
+**Features**: Uses in-cluster registry (no external accounts needed), auto-detects base image and handles authentication.
+
+### Configuration
+
+Add to `~/.lls_showroom`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLAMA_STACK_SOURCE_PATH` | *(required)* | Path to local llama-stack repository |
+| `DEV_IMAGE_NAMESPACE` | `redhat-ods-applications` | Namespace for images |
+| `DEV_IMAGE_NAME` | `llama-stack-dev` | Image name |
+| `DEV_IMAGE_TAG` | `dev-YYYYMMDD-HHMMSS` | Image tag (auto-generated) |
+| `DEV_BASE_IMAGE` | *(auto-detected)* | Base image to use |
+| `CONTAINER_TOOL` | `podman` | Container tool (podman/docker) |
+
+### Troubleshooting
+
+**Registry authentication fails**:
+```bash
+REGISTRY=$(oc get route default-route -n openshift-image-registry -o jsonpath='{.spec.host}')
+podman login -u $(oc whoami) -p $(oc whoami -t) --tls-verify=false $REGISTRY
+```
+
+**Registry route not available** (requires cluster-admin):
+```bash
+oc patch configs.imageregistry.operator.openshift.io/cluster \
+  --type=merge -p '{"spec":{"defaultRoute":true}}'
+```
+
+**Pod not using dev image**:
+```bash
+# Check Kyverno policy exists
+oc get clusterpolicy replace-rhoai-llama-stack-images
+
+# Check pod image
+oc get pod -l app=llama-stack -n redhat-ods-applications \
+  -o jsonpath='{.items[0].spec.containers[0].image}'
+```
+
 ## Cleanup
 
 ```bash
