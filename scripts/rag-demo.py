@@ -245,7 +245,8 @@ class LlamaStackDemo:
                 headers={"Content-Type": "application/json"}
             )
 
-            if response.status_code in [200, 201]:
+            # 204 No Content is a valid success response for insert operations
+            if response.status_code in [200, 201, 204]:
                 print(f"✓ Inserted {len(chunks)} vectors into {vector_store_id}")
                 return True
             else:

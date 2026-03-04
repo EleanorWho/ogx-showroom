@@ -333,10 +333,13 @@ echo ""
 # Clean up any existing pod first (in case of previous failed runs)
 oc delete pod temp-config-extractor -n redhat-ods-operator --force --grace-period=0 --ignore-not-found=true 2>/dev/null || true
 
+echo "Pulling image and extracting config (this may take a few minutes for large images)..."
+echo ""
+
 # Note: --rm outputs deletion message to stdout, so we filter it out
 if oc run temp-config-extractor \
   --image="${CONFIG_IMAGE}" \
-  --restart=Never --rm -i --command -- cat /opt/app-root/config.yaml 2>&1 | \
+  --restart=Never --rm -i --timeout=10m --command -- cat /opt/app-root/config.yaml 2>&1 | \
   grep -v -e "pod \"temp-config-extractor\" deleted" -e "Warning:" > "${SCRIPT_DIR}/config_base.yaml"; then
   echo "Config extracted successfully to ${SCRIPT_DIR}/config_base.yaml"
 else
