@@ -367,13 +367,18 @@ echo "Pulling image and extracting config (this may take a few minutes for large
 echo ""
 
 # Note: --rm outputs deletion message to stdout, so we filter it out
-if oc run temp-config-extractor \
+# Use timeout command (5 minutes) as oc run --timeout doesn't work reliably
+if timeout 300 oc run temp-config-extractor \
   --image="${CONFIG_IMAGE}" \
-  --restart=Never --rm -i --timeout=10m --command -- cat /opt/app-root/config.yaml 2>&1 | \
+  --image-pull-policy=Always \
+  --restart=Never --rm -i -n redhat-ods-operator --command -- cat /opt/app-root/config.yaml 2>&1 | \
   grep -v -e "pod \"temp-config-extractor\" deleted" -e "Warning:" > "${SCRIPT_DIR}/config_base.yaml"; then
   echo "Config extracted successfully to ${SCRIPT_DIR}/config_base.yaml"
 else
   echo "Warning: Failed to extract config.yaml"
+  echo "Checking pod status..."
+  oc get pod temp-config-extractor -n redhat-ods-operator -o yaml 2>/dev/null || true
+  oc describe pod temp-config-extractor -n redhat-ods-operator 2>/dev/null || true
   exit 1
 fi
 

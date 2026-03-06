@@ -17,23 +17,32 @@ inputs:
     description: 'Environment variables in KEY=value format (multiline). Use this for secrets and config like SHOWROOM_PULL_SECRET, SHOWROOM_VLLM_URL, etc.'
     required: false
     default: ''
+  oc_server:
+    description: 'OpenShift server URL'
+    required: false
+    default: ''
+  oc_token:
+    description: 'OpenShift authentication token'
+    required: false
+    default: ''
 outputs:
   scripts_dir:
     description: 'Directory containing provision.sh, test.sh, cleanup.sh'
-    value: ${{ steps.setup.outputs.scripts_dir }}
+    value: ${{ steps.showroom.outputs.scripts_dir }}
 runs:
   using: 'composite'
   steps:
     - name: Install OpenShift CLI
-      shell: bash
-      run: |
-        # Download and install oc CLI
-        OC_VERSION="4.19.24"
-        curl -L "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VERSION}/openshift-client-linux.tar.gz" -o /tmp/oc.tar.gz
-        tar -xzf /tmp/oc.tar.gz -C /tmp
-        sudo mv /tmp/oc /usr/local/bin/
-        sudo chmod +x /usr/local/bin/oc
-        oc version --client
+      uses: redhat-actions/openshift-tools-installer@v1
+      with:
+        oc: "4.19.24"
+
+    - name: Login to OpenShift cluster
+      if: inputs.oc_server != '' && inputs.oc_token != ''
+      uses: redhat-actions/oc-login@v1
+      with:
+        openshift_server_url: ${{ inputs.oc_server }}
+        openshift_token: ${{ inputs.oc_token }}
 
     - name: Prepare config file
       shell: bash
@@ -71,14 +80,50 @@ runs:
           done <<< "$ENV_VARS"
         fi
 
-    - name: Setup runner environment
-      id: setup
+    - name: Pre-flight cluster check
+      if: inputs.oc_server != '' && inputs.oc_token != ''
       shell: bash
-      env:
-        SHOWROOM_CATALOG_IMAGE: ${{ inputs.catalog_image }}
-        SHOWROOM_LLAMA_STACK_IMAGE: ${{ inputs.llama_stack_image }}
-        SHOWROOM_OPERATOR_IMAGE: ${{ inputs.operator_image }}
-        ENV_VARS: ${{ inputs.env }}
       run: |
-        chmod +x ${{ github.action_path }}/setup.sh
+        echo "Checking if cluster is clean..."
+
+        MAX_WAIT=300  # 5 minutes
+        INTERVAL=30    # Check every 30 seconds
+        ELAPSED=0
+
+        while [ $ELAPSED -lt $MAX_WAIT ]; do
+          CLUSTER_CLEAN=true
+
+          # Check for existing catalog
+          if oc get catalogsource rhoai-catalog -n openshift-marketplace 2>/dev/null; then
+            echo "⏳ rhoai-catalog exists - waiting for cleanup..."
+            CLUSTER_CLEAN=false
+          fi
+
+          # Check for operator namespace
+          if oc get namespace redhat-ods-operator 2>/dev/null; then
+            echo "⏳ redhat-ods-operator namespace exists - waiting for cleanup..."
+            CLUSTER_CLEAN=false
+          fi
+
+          # If cluster is clean, proceed
+          if [ "$CLUSTER_CLEAN" = true ]; then
+            echo "✓ Cluster is clean and ready"
+            exit 0
+          fi
+
+          # Wait and retry
+          echo "Cluster not clean. Waiting $INTERVAL seconds... (elapsed: ${ELAPSED}s / ${MAX_WAIT}s)"
+          sleep $INTERVAL
+          ELAPSED=$((ELAPSED + INTERVAL))
+        done
+
+        # Timeout reached
+        echo "ERROR: Timeout waiting for cluster to be clean after $MAX_WAIT seconds"
+        echo "Cluster may still be in use by another job or have orphaned resources"
+        exit 1
+
+    - name: Save action_path
+      id: showroom
+      shell: bash
+      run: |
         echo "scripts_dir=${{ github.action_path }}" >> $GITHUB_OUTPUT
