@@ -61,62 +61,6 @@ print_banner() {
   echo ""
 }
 
-# Setup registry configuration
-setup_registry() {
-  log_info "Setting up in-cluster registry configuration..."
-
-  # Check if internal registry route exists
-  if ! oc get route default-route -n openshift-image-registry &>/dev/null; then
-    log_warn "Internal registry route not found. Attempting to enable it..."
-
-    if oc patch configs.imageregistry.operator.openshift.io/cluster \
-      --type=merge -p '{"spec":{"defaultRoute":true}}' 2>/dev/null; then
-      log_info "Waiting for route to be created (up to 3 minutes)..."
-      if oc wait --for=condition=Admitted route/default-route \
-        -n openshift-image-registry --timeout=180s 2>/dev/null; then
-        log_success "Internal registry route enabled"
-      else
-        log_error "Timeout waiting for registry route"
-        log_error "Please enable it manually: oc patch configs.imageregistry.operator.openshift.io/cluster --type=merge -p '{\"spec\":{\"defaultRoute\":true}}'"
-        exit 1
-      fi
-    else
-      log_error "Failed to enable internal registry route"
-      log_error "You may need cluster-admin permissions or the registry may not be available"
-      exit 1
-    fi
-  fi
-
-  # Get registry route
-  REGISTRY_ROUTE=$(oc get route default-route -n openshift-image-registry -o jsonpath='{.spec.host}')
-  if [ -z "${REGISTRY_ROUTE}" ]; then
-    log_error "Failed to get internal registry route"
-    exit 1
-  fi
-
-  log_success "Registry route: ${REGISTRY_ROUTE}"
-
-  # Set image URLs
-  PUSH_IMAGE="${REGISTRY_ROUTE}/${DEV_IMAGE_NAMESPACE}/${DEV_IMAGE_NAME}:${DEV_IMAGE_TAG}"
-  PULL_IMAGE="image-registry.openshift-image-registry.svc:5000/${DEV_IMAGE_NAMESPACE}/${DEV_IMAGE_NAME}:${DEV_IMAGE_TAG}"
-
-  # Test authentication
-  log_info "Testing registry authentication..."
-  if ! ${CONTAINER_TOOL} login -u "$(oc whoami)" -p "$(oc whoami -t)" \
-    --tls-verify=false ${REGISTRY_ROUTE} &>/dev/null; then
-    log_error "Failed to authenticate with internal registry"
-    log_info "Trying to login again..."
-    if ! ${CONTAINER_TOOL} login -u "$(oc whoami)" -p "$(oc whoami -t)" \
-      --tls-verify=false ${REGISTRY_ROUTE}; then
-      log_error "Registry authentication failed"
-      exit 1
-    fi
-  fi
-  log_success "Registry authentication successful"
-
-  export PUSH_IMAGE
-  export PULL_IMAGE
-}
 
 # Get base image from operator CSV
 get_base_image() {
@@ -197,9 +141,6 @@ validate_prerequisites() {
   fi
 
   log_success "LlamaStack source found: ${LLAMA_STACK_SOURCE_PATH}"
-
-  # Setup registry
-  setup_registry
 }
 
 # Build dev image
@@ -207,12 +148,13 @@ build_dev_image() {
   log_info "Building dev image..."
 
   BASE_IMAGE=$(get_base_image)
+  LOCAL_IMAGE="${DEV_IMAGE_NAME}:${DEV_IMAGE_TAG}"
 
   echo ""
   echo "Build configuration:"
   echo "  Base image:   ${BASE_IMAGE}"
   echo "  Source:       ${LLAMA_STACK_SOURCE_PATH}"
-  echo "  Target image: ${PUSH_IMAGE}"
+  echo "  Local image:  ${LOCAL_IMAGE}"
   echo ""
 
   # Build the image
@@ -221,39 +163,37 @@ build_dev_image() {
   if ${CONTAINER_TOOL} build \
     -f "${SCRIPT_DIR}/Dockerfile.dev" \
     --build-arg BASE_IMAGE="${BASE_IMAGE}" \
-    -t "${PUSH_IMAGE}" \
+    -t "${LOCAL_IMAGE}" \
     .; then
     log_success "Image built successfully"
   else
     log_error "Image build failed"
     exit 1
   fi
+
+  export LOCAL_IMAGE
 }
 
 # Push dev image
 push_dev_image() {
   log_info "Pushing image to in-cluster registry..."
 
-  # Push with retry logic
-  MAX_RETRIES=3
-  RETRY_COUNT=0
+  # Get registry route
+  REGISTRY_ROUTE=$(oc get route default-route -n openshift-image-registry -o jsonpath='{.spec.host}')
 
-  while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
-    # For internal registry, disable TLS verification
-    if ${CONTAINER_TOOL} push --tls-verify=false "${PUSH_IMAGE}"; then
-      log_success "Image pushed successfully"
-      return 0
-    fi
+  # Construct image URLs
+  PUSH_IMAGE="${REGISTRY_ROUTE}/${DEV_IMAGE_NAMESPACE}/${DEV_IMAGE_NAME}:${DEV_IMAGE_TAG}"
+  PULL_IMAGE="image-registry.openshift-image-registry.svc:5000/${DEV_IMAGE_NAMESPACE}/${DEV_IMAGE_NAME}:${DEV_IMAGE_TAG}"
 
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    if [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; then
-      log_warn "Push failed, retrying (${RETRY_COUNT}/${MAX_RETRIES})..."
-      sleep 5
-    fi
-  done
-
-  log_error "Failed to push image after ${MAX_RETRIES} attempts"
-  exit 1
+  # Use the push-image-to-registry.sh utility
+  if "${SCRIPT_DIR}/push-image-to-registry.sh" "${LOCAL_IMAGE}" "${DEV_IMAGE_NAMESPACE}" "${DEV_IMAGE_NAME}:${DEV_IMAGE_TAG}"; then
+    log_success "Image pushed successfully"
+    echo "  Push URL: ${PUSH_IMAGE}"
+    echo "  Pull URL: ${PULL_IMAGE}"
+  else
+    log_error "Failed to push image"
+    exit 1
+  fi
 }
 
 # Apply Kyverno policy for image replacement
@@ -293,12 +233,6 @@ $(envsubst < "${SCRIPT_DIR}/policies/replace-llama-stack-core.yaml.template")"
 # Update deployment
 update_deployment() {
   log_info "Updating deployment to use dev image..."
-
-  echo ""
-  echo "Image configuration:"
-  echo "  Push URL:  ${PUSH_IMAGE}"
-  echo "  Pull URL:  ${PULL_IMAGE}"
-  echo ""
 
   # Apply Kyverno policy to replace images
   apply_kyverno_policy
