@@ -61,6 +61,7 @@ echo "  Overlay: ${OVERLAY}"
 [ -n "${SHOWROOM_VLLM_API_TOKEN:-}" ] && echo "  Inference Token: ${SHOWROOM_VLLM_API_TOKEN:0:8}..."
 [ -n "${SHOWROOM_VLLM_EMBEDDING_URL:-}" ] && echo "  Embedding URL: ${SHOWROOM_VLLM_EMBEDDING_URL}"
 [ -n "${SHOWROOM_VLLM_EMBEDDING_API_TOKEN:-}" ] && echo "  Embedding Token: ${SHOWROOM_VLLM_EMBEDDING_API_TOKEN:0:8}..."
+[ -n "${SHOWROOM_OPENAI_API_KEY:-}" ] && echo "  OpenAI API Key: ${SHOWROOM_OPENAI_API_KEY:0:8}..."
 echo ""
 
 # Validate required configuration

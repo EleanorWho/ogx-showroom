@@ -50,6 +50,7 @@ jobs:
             SHOWROOM_VLLM_API_TOKEN=${{ secrets.SHOWROOM_VLLM_API_TOKEN }}
             SHOWROOM_VLLM_EMBEDDING_URL=https://nomic-embed-text-v1-5-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1
             SHOWROOM_VLLM_EMBEDDING_API_TOKEN=${{ secrets.SHOWROOM_VLLM_EMBEDDING_API_TOKEN }}
+            SHOWROOM_OPENAI_API_KEY=${{ secrets.SHOWROOM_OPENAI_API_KEY }}
 
       - name: Run setup.sh
         run: |

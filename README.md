@@ -58,6 +58,7 @@ After provisioning, URLs and credentials are automatically saved to `~/.lls_show
 ./scripts/rag-demo.py       # RAG with S3 file storage and vector search
 ./scripts/responses-demo.py # Multi-turn conversations with response tracking
 ./scripts/responses-demo.py --prompt "What is RAG?" # Single-turn with custom question
+./scripts/multi-agent-demo.py # Multi-agent research assistant with triage routing (requires OpenAI API key)
 ```
 
 Or with explicit parameters:
@@ -65,6 +66,8 @@ Or with explicit parameters:
 ./scripts/rag-demo.py <LLAMASTACK_URL> <KEYCLOAK_URL> <USERNAME> <PASSWORD>
 ./scripts/responses-demo.py <LLAMASTACK_URL> <KEYCLOAK_URL> <USERNAME> <PASSWORD>
 ```
+
+**Note**: The multi-agent demo requires `SHOWROOM_OPENAI_API_KEY` to be set in `~/.lls_showroom`.
 
 ## Deploy Local Changes
 

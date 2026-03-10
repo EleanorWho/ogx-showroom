@@ -29,6 +29,8 @@ spec:
         value: "4096"
       - name: VLLM_EMBEDDING_TLS_VERIFY
         value: "true"
+      - name: OPENAI_API_KEY
+        value: ${SHOWROOM_OPENAI_API_KEY}
       - name: POSTGRES_HOST
         value: postgres
       - name: POSTGRES_PORT

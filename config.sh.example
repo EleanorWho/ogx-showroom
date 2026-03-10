@@ -54,6 +54,9 @@ export SHOWROOM_EMBEDDING_MODEL="${SHOWROOM_EMBEDDING_MODEL:-nomic-embed-text-v1
 export SHOWROOM_EMBEDDING_PROVIDER_MODEL_ID="${SHOWROOM_EMBEDDING_PROVIDER_MODEL_ID:-nomic-ai/nomic-embed-text-v1.5}"
 export SHOWROOM_EMBEDDING_DIMENSION="${SHOWROOM_EMBEDDING_DIMENSION:-768}"
 
+# OpenAI API configuration (optional - for multi-agent demo)
+export SHOWROOM_OPENAI_API_KEY="${SHOWROOM_OPENAI_API_KEY:-}"
+
 # ======================================
 # Deploy Local Changes Configuration
 # ======================================
