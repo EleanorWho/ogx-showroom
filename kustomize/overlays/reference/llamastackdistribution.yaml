@@ -52,7 +52,7 @@ spec:
       - name: KEYCLOAK_URL
         value: http://keycloak:8080
       - name: KEYCLOAK_ISSUER_URL
-        value: http://keycloak:8080
+        value: ${KEYCLOAK_EXTERNAL_URL}
       - name: KEYCLOAK_VERIFY_TLS
         value: "false"
       # Milvus Vector Database Configuration

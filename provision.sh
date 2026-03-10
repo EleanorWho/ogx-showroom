@@ -99,6 +99,13 @@ echo "Building and applying manifests..."
 echo "=========================================="
 echo ""
 
+# Get cluster domain to predict external Keycloak URL before deployment
+echo "Determining external Keycloak URL..."
+CLUSTER_DOMAIN=$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}' 2>/dev/null || echo "")
+export KEYCLOAK_EXTERNAL_URL="https://keycloak-redhat-ods-applications.${CLUSTER_DOMAIN}"
+echo "Predicted Keycloak URL: ${KEYCLOAK_EXTERNAL_URL}"
+echo ""
+
 # Add auth configuration to config.yaml if using reference overlay
 if [ "${OVERLAY}" = "reference" ]; then
   echo "Building config.yaml with ABAC auth configuration..."
@@ -192,34 +199,6 @@ if [ "${OVERLAY}" = "reference" ]; then
     "[ \"\$(oc get deployment keycloak -n redhat-ods-applications -o jsonpath='{.status.readyReplicas}' 2>/dev/null)\" = '1' ]" \
     300 5 || exit 1
 
-  # Get Keycloak route
-  echo ""
-  echo "Getting Keycloak route..."
-  KEYCLOAK_URL=$(oc get route keycloak -n redhat-ods-applications -o jsonpath='{.spec.host}' 2>/dev/null || echo "")
-  if [ -z "$KEYCLOAK_URL" ]; then
-    echo "ERROR: Could not retrieve Keycloak route"
-    exit 1
-  fi
-  KEYCLOAK_URL="https://${KEYCLOAK_URL}"
-  echo "Keycloak URL: ${KEYCLOAK_URL}"
-
-  # Update LlamaStackDistribution to use external Keycloak issuer URL
-  echo ""
-  echo "Updating LlamaStackDistribution with external Keycloak issuer URL..."
-
-  # Find the index of KEYCLOAK_ISSUER_URL in the env array
-  INDEX=$(oc get llamastackdistribution llamastack-distribution -n redhat-ods-applications -o json 2>/dev/null | \
-    jq '.spec.server.containerSpec.env | map(.name) | index("KEYCLOAK_ISSUER_URL")' 2>/dev/null || echo "-1")
-
-  if [ "$INDEX" != "-1" ] && [ -n "$INDEX" ]; then
-    oc patch llamastackdistribution llamastack-distribution -n redhat-ods-applications --type=json -p='[
-      {"op": "replace", "path": "/spec/server/containerSpec/env/'"${INDEX}"'/value", "value": "'"${KEYCLOAK_URL}"'"}
-    ]'
-    echo "✓ Updated KEYCLOAK_ISSUER_URL to ${KEYCLOAK_URL}"
-  else
-    echo "⚠ Could not find KEYCLOAK_ISSUER_URL in LlamaStackDistribution, skipping patch"
-  fi
-
   # Run Keycloak setup script
   echo ""
   echo "Running Keycloak configuration script..."
@@ -238,7 +217,7 @@ if [ "${OVERLAY}" = "reference" ]; then
 
     # Run the setup script
     # Default admin password is 'admin' (configured in keycloak.yaml)
-    KEYCLOAK_URL="${KEYCLOAK_URL}" \
+    KEYCLOAK_URL="${KEYCLOAK_EXTERNAL_URL}" \
     KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:-admin}" \
     python3 "${SCRIPT_DIR}/scripts/setup-keycloak.py"
 
@@ -253,7 +232,7 @@ if [ "${OVERLAY}" = "reference" ]; then
   echo ""
   echo "Saving configuration to ~/.lls_showroom_generated for easy demo access..."
   [ -n "$ROUTE_URL" ] && python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set LLAMASTACK_URL "https://${ROUTE_URL}" 2>/dev/null || true
-  [ -n "$KEYCLOAK_URL" ] && python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_URL "${KEYCLOAK_URL}" 2>/dev/null || true
+  [ -n "$KEYCLOAK_EXTERNAL_URL" ] && python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_URL "${KEYCLOAK_EXTERNAL_URL}" 2>/dev/null || true
   # Save default demo user credentials (admin/admin123)
   python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_USERNAME "admin" 2>/dev/null || true
   python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_PASSWORD "admin123" 2>/dev/null || true
@@ -309,8 +288,8 @@ echo ""
 # Show Keycloak information if using reference overlay
 if [ "${OVERLAY}" = "reference" ]; then
   echo "Keycloak Authentication:"
-  echo "  URL: ${KEYCLOAK_URL:-N/A}"
-  echo "  Admin Console: ${KEYCLOAK_URL:-N/A}/admin"
+  echo "  URL: ${KEYCLOAK_EXTERNAL_URL:-N/A}"
+  echo "  Admin Console: ${KEYCLOAK_EXTERNAL_URL:-N/A}/admin"
   echo "  Admin User: admin"
   echo "  Admin Password: ${KEYCLOAK_ADMIN_PASSWORD:-admin}"
   echo "  Realm: llamastack-demo"
@@ -324,7 +303,7 @@ if [ "${OVERLAY}" = "reference" ]; then
   echo "To test authentication:"
   echo "  1. Get a token from Keycloak:"
   echo "     KEYCLOAK_CLIENT_SECRET=\$(python3 scripts/secrets_util.py get KEYCLOAK_CLIENT_SECRET)"
-  echo "     curl -X POST '${KEYCLOAK_URL:-https://keycloak-url}/realms/llamastack-demo/protocol/openid-connect/token' \\"
+  echo "     curl -X POST '${KEYCLOAK_EXTERNAL_URL:-https://keycloak-url}/realms/llamastack-demo/protocol/openid-connect/token' \\"
   echo "       -d 'client_id=llamastack' \\"
   echo "       -d 'client_secret='\$KEYCLOAK_CLIENT_SECRET \\"
   echo "       -d 'username=developer' \\"
