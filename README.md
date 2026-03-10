@@ -30,6 +30,13 @@ Reference architecture and CI for [Llama Stack](https://github.com/meta-llama/ll
 
 **CI/CD**: GitHub Actions workflow tests full deployment lifecycle on ROSA with configurable image overrides for testing ODH/upstream builds.
 
+## Prerequisites
+
+- OpenShift CLI (`oc`)
+- Container tool (`podman` or `docker`)
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/)
+
 ## Setup
 
 Create environment file (see `config.sh.example` for details):

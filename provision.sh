@@ -203,23 +203,17 @@ if [ "${OVERLAY}" = "reference" ]; then
   echo ""
   echo "Running Keycloak configuration script..."
   if [ -f "${SCRIPT_DIR}/scripts/setup-keycloak.py" ]; then
-    # Check if python3 is available
-    if ! command -v python3 &> /dev/null; then
-      echo "ERROR: python3 is required to configure Keycloak"
+    # Check if uv is available
+    if ! command -v uv &> /dev/null; then
+      echo "ERROR: uv is required to run Python scripts (see Prerequisites in README.md)"
       exit 1
     fi
 
-    # Install required Python packages if needed
-    if ! python3 -c "import requests" 2>/dev/null; then
-      echo "Installing required Python packages..."
-      pip3 install --user requests urllib3 2>/dev/null || true
-    fi
-
-    # Run the setup script
+    # Run the setup script (uv will automatically install dependencies from pyproject.toml)
     # Default admin password is 'admin' (configured in keycloak.yaml)
     KEYCLOAK_URL="${KEYCLOAK_EXTERNAL_URL}" \
     KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:-admin}" \
-    python3 "${SCRIPT_DIR}/scripts/setup-keycloak.py"
+    uv run "${SCRIPT_DIR}/scripts/setup-keycloak.py"
 
     echo ""
     echo "Keycloak configuration completed!"
@@ -231,11 +225,11 @@ if [ "${OVERLAY}" = "reference" ]; then
   # Save URLs and demo credentials to secrets file for convenience
   echo ""
   echo "Saving configuration to ~/.lls_showroom_generated for easy demo access..."
-  [ -n "$ROUTE_URL" ] && python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set LLAMASTACK_URL "https://${ROUTE_URL}" 2>/dev/null || true
-  [ -n "$KEYCLOAK_EXTERNAL_URL" ] && python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_URL "${KEYCLOAK_EXTERNAL_URL}" 2>/dev/null || true
+  [ -n "$ROUTE_URL" ] && uv run "${SCRIPT_DIR}/scripts/secrets_util.py" set LLAMASTACK_URL "https://${ROUTE_URL}" 2>/dev/null || true
+  [ -n "$KEYCLOAK_EXTERNAL_URL" ] && uv run "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_URL "${KEYCLOAK_EXTERNAL_URL}" 2>/dev/null || true
   # Save default demo user credentials (admin/admin123)
-  python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_USERNAME "admin" 2>/dev/null || true
-  python3 "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_PASSWORD "admin123" 2>/dev/null || true
+  uv run "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_USERNAME "admin" 2>/dev/null || true
+  uv run "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_PASSWORD "admin123" 2>/dev/null || true
 fi
 
 echo ""
@@ -302,7 +296,7 @@ if [ "${OVERLAY}" = "reference" ]; then
   echo ""
   echo "To test authentication:"
   echo "  1. Get a token from Keycloak:"
-  echo "     KEYCLOAK_CLIENT_SECRET=\$(python3 scripts/secrets_util.py get KEYCLOAK_CLIENT_SECRET)"
+  echo "     KEYCLOAK_CLIENT_SECRET=\$(uv run scripts/secrets_util.py get KEYCLOAK_CLIENT_SECRET)"
   echo "     curl -X POST '${KEYCLOAK_EXTERNAL_URL:-https://keycloak-url}/realms/llamastack-demo/protocol/openid-connect/token' \\"
   echo "       -d 'client_id=llamastack' \\"
   echo "       -d 'client_secret='\$KEYCLOAK_CLIENT_SECRET \\"
@@ -315,6 +309,6 @@ if [ "${OVERLAY}" = "reference" ]; then
   echo "     curl -H 'Authorization: Bearer \$TOKEN' https://${ROUTE_URL:-llamastack-url}/v1/models"
   echo ""
   echo "To run the RAG demo (URLs and credentials stored in ~/.lls_showroom_generated):"
-  echo "  python3 scripts/rag-demo.py"
+  echo "  uv run scripts/rag-demo.py"
   echo ""
 fi
