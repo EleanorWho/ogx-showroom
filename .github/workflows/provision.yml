@@ -61,7 +61,6 @@ jobs:
 
       - name: Run tests
         run: |
-          sleep 30
           ${{ steps.setup.outputs.scripts_dir }}/test.sh
 
       - name: Run unprovision.sh
