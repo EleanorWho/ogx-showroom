@@ -63,6 +63,22 @@ jobs:
         run: |
           ${{ steps.setup.outputs.scripts_dir }}/test.sh
 
+      - name: Debug - Capture OpenShift state
+        if: always()
+        run: |
+          # WARNING: Only output to stdout (console). Secrets are auto-redacted in console output
+          # but NOT in files/artifacts. Be careful what you log in the application itself.
+
+          echo -e "\n=== Recent Events ==="
+          oc get events -n redhat-ods-applications --sort-by='.lastTimestamp' \
+            -o custom-columns=TIME:.lastTimestamp,TYPE:.type,REASON:.reason,OBJECT:.involvedObject.name,MESSAGE:.message
+
+          echo -e "\n=== All Resources ==="
+          oc get all -n redhat-ods-applications
+
+          echo -e "\n=== Pod Logs (last 50 lines) ==="
+          oc logs -n redhat-ods-applications --tail=-1 -l app=llama-stack || echo "No logs available"
+
       - name: Run unprovision.sh
         if: always()
         run: |
