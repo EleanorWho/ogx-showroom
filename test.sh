@@ -8,48 +8,120 @@ if ! command -v uv &> /dev/null; then
   exit 1
 fi
 
-echo "=========================================="
-echo "Running tests..."
-echo "=========================================="
-echo ""
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "=========================================="
-echo "Running rag-demo.py..."
-echo "=========================================="
-echo ""
+# Parse command line arguments for tag filtering
+FILTER_TAGS="${1:-all}"
 
-uv run "${SCRIPT_DIR}/scripts/rag-demo.py"
+# Check if required environment key exists
+check_required_key() {
+  local key_name="$1"
 
-echo ""
-echo "=========================================="
-echo "Running responses-demo.py..."
-echo "=========================================="
-echo ""
-
-uv run "${SCRIPT_DIR}/scripts/responses-demo.py"
-
-# Check if SHOWROOM_OPENAI_API_KEY is configured
-if [ -f ~/.lls_showroom ]; then
-  # shellcheck source=/dev/null
-  source ~/.lls_showroom
-  if [ -n "${SHOWROOM_OPENAI_API_KEY:-}" ]; then
-    echo ""
-    echo "=========================================="
-    echo "Running multi-agent-demo.py..."
-    echo "=========================================="
-    echo ""
-
-    uv run "${SCRIPT_DIR}/scripts/multi-agent-demo.py"
-  else
-    echo ""
-    echo "⊘ Skipping multi-agent-demo.py (SHOWROOM_OPENAI_API_KEY not configured)"
+  if [ -z "$key_name" ]; then
+    return 0  # No requirement
   fi
-else
-  echo ""
-  echo "⊘ Skipping multi-agent-demo.py (SHOWROOM_OPENAI_API_KEY not configured)"
-fi
 
+  # Check in ~/.lls_showroom file
+  if [ -f ~/.lls_showroom ]; then
+    # shellcheck source=/dev/null
+    source ~/.lls_showroom
+  fi
+
+  # Check if the variable is set
+  if [ -n "${!key_name:-}" ]; then
+    return 0
+  fi
+
+  return 1
+}
+
+# Run a demo based on its type
+run_demo() {
+  local demo_path="$1"
+  local demo_type="$2"
+
+  case "$demo_type" in
+    python)
+      uv run "${SCRIPT_DIR}/${demo_path}"
+      ;;
+    shell)
+      bash "${SCRIPT_DIR}/${demo_path}"
+      ;;
+    jupyter)
+      # Future: jupyter nbconvert --execute
+      echo "⊘ Jupyter notebooks not yet supported"
+      return 1
+      ;;
+    *)
+      echo "⊘ Unknown type: $demo_type"
+      return 1
+      ;;
+  esac
+}
+
+# Main execution
+echo "=========================================="
+if [ "$FILTER_TAGS" = "all" ]; then
+  echo "Running all demos..."
+else
+  echo "Running demos with tags: $FILTER_TAGS"
+fi
+echo "=========================================="
 echo ""
-echo "✓ Tests completed successfully"
+
+DEMOS_FOUND=0
+DEMOS_RUN=0
+DEMOS_SKIPPED=0
+
+# Get filtered demos from manifest using Python parser
+while IFS='|' read -r demo_path demo_name demo_type demo_requires; do
+  DEMOS_FOUND=$((DEMOS_FOUND + 1))
+
+  # Check if required key exists
+  if [ -n "$demo_requires" ]; then
+    if ! check_required_key "$demo_requires"; then
+      echo "⊘ Skipping: $demo_name"
+      echo "  Reason: $demo_requires not configured"
+      echo ""
+      DEMOS_SKIPPED=$((DEMOS_SKIPPED + 1))
+      continue
+    fi
+  fi
+
+  echo "=========================================="
+  echo "Running: $demo_name"
+  echo "=========================================="
+  echo ""
+
+  if run_demo "$demo_path" "$demo_type"; then
+    DEMOS_RUN=$((DEMOS_RUN + 1))
+  else
+    DEMOS_SKIPPED=$((DEMOS_SKIPPED + 1))
+  fi
+
+  echo ""
+done < <(uv run "${SCRIPT_DIR}/scripts/parse-manifest.py" "$FILTER_TAGS")
+
+echo "=========================================="
+if [ $DEMOS_FOUND -eq 0 ]; then
+  echo "No demos found matching tags: $FILTER_TAGS"
+  echo ""
+  echo "Available tags (from demos/manifest.yaml):"
+  python3 -c "
+import yaml
+with open('${SCRIPT_DIR}/demos/manifest.yaml') as f:
+    manifest = yaml.safe_load(f)
+    all_tags = set()
+    for demo in manifest.get('demos', []):
+        all_tags.update(demo.get('tags', []))
+    for tag in sorted(all_tags):
+        print(f'  - {tag}')
+"
+  exit 1
+else
+  echo "Summary: $DEMOS_RUN/$DEMOS_FOUND demos completed successfully"
+  if [ $DEMOS_SKIPPED -gt 0 ]; then
+    echo "         $DEMOS_SKIPPED demo(s) skipped"
+  fi
+fi
+echo "=========================================="

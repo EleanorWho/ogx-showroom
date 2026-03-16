@@ -9,23 +9,23 @@ This script demonstrates how to:
 4. Track response IDs stored in LlamaStack's database
 
 Usage:
-    python scripts/responses-demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET] [--prompt PROMPT]
+    python demos/responses/demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET] [--prompt PROMPT]
 
 The script reads configuration from (in order): command line args, ~/.lls_showroom_generated,
 environment variables. All arguments are optional if stored in ~/.lls_showroom_generated.
 
 Example with no arguments (reads from ~/.lls_showroom_generated):
-    python scripts/responses-demo.py
+    python demos/responses/demo.py
 
 Example with custom prompt:
-    python scripts/responses-demo.py --prompt "What is RAG?"
+    python demos/responses/demo.py --prompt "What is RAG?"
 
 Example with URLs only:
-    python scripts/responses-demo.py https://llamastack-distribution.apps.example.com \
+    python demos/responses/demo.py https://llamastack-distribution.apps.example.com \
         https://keycloak.apps.example.com
 
 Example with full authentication and custom prompt:
-    python scripts/responses-demo.py https://llamastack-distribution.apps.example.com \
+    python demos/responses/demo.py https://llamastack-distribution.apps.example.com \
         https://keycloak.apps.example.com \
         developer dev123 --prompt "Explain embeddings"
 
@@ -42,11 +42,11 @@ from typing import Optional, Dict, Any, List
 from pathlib import Path
 from openai import OpenAI
 
-# Add scripts directory to path for imports
-SCRIPT_DIR = Path(__file__).parent
-sys.path.insert(0, str(SCRIPT_DIR))
+# Add project root to path for imports
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
-from secrets_util import get_or_set, get
+from demos.common.utils import get_keycloak_token, load_demo_config
 
 
 class ResponsesDemo:
@@ -83,32 +83,13 @@ class ResponsesDemo:
     def authenticate(self) -> Optional[str]:
         """Get JWT token from Keycloak and return it"""
         try:
-            token_url = f"{self.keycloak_url}/realms/llamastack-demo/protocol/openid-connect/token"
-
-            payload = {
-                'client_id': 'llamastack',
-                'client_secret': self.client_secret,
-                'username': self.username,
-                'password': self.password,
-                'grant_type': 'password'
-            }
-
-            print(f"\n🔐 Authenticating with Keycloak as '{self.username}'...")
-            response = requests.post(token_url, data=payload, verify=True)
-            response.raise_for_status()
-
-            token_data = response.json()
-            access_token = token_data.get('access_token')
-
-            if access_token:
-                print(f"✓ Authentication successful")
-                print(f"  Token type: {token_data.get('token_type', 'Bearer')}")
-                print(f"  Expires in: {token_data.get('expires_in', 'unknown')} seconds")
-                return access_token
-            else:
-                print(f"✗ No access token in response")
-                return None
-
+            access_token = get_keycloak_token(
+                self.keycloak_url,
+                self.username,
+                self.password,
+                self.client_secret
+            )
+            return access_token
         except Exception as e:
             print(f"✗ Authentication failed: {e}")
             return None
@@ -243,58 +224,42 @@ class ResponsesDemo:
 
 
 def main():
-    # Parse command line arguments
+    # Parse command line arguments for demo-specific options
     parser = argparse.ArgumentParser(
         description='LlamaStack Responses API Demo - Verify OpenAI SDK compatibility',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Run with stored configuration from ~/.lls_showroom_generated:
-  python scripts/responses-demo.py
+  python demos/responses/demo.py
 
   # Run with custom prompt:
-  python scripts/responses-demo.py --prompt "What is RAG?"
+  python demos/responses/demo.py --prompt "What is RAG?"
 
   # Run with explicit URLs:
-  python scripts/responses-demo.py https://llamastack-distribution.apps.example.com \\
+  python demos/responses/demo.py https://llamastack-distribution.apps.example.com \\
       https://keycloak.apps.example.com
 
   # Run with full authentication and custom prompt:
-  python scripts/responses-demo.py https://llamastack-distribution.apps.example.com \\
+  python demos/responses/demo.py https://llamastack-distribution.apps.example.com \\
       https://keycloak.apps.example.com developer dev123 --prompt "Explain embeddings"
         """
     )
 
-    parser.add_argument('llamastack_url', nargs='?', help='LlamaStack URL')
-    parser.add_argument('keycloak_url', nargs='?', help='Keycloak URL')
-    parser.add_argument('username', nargs='?', help='Keycloak username')
-    parser.add_argument('password', nargs='?', help='Keycloak password')
-    parser.add_argument('client_secret', nargs='?', help='Keycloak client secret')
     parser.add_argument('--prompt', type=str, default="What is a vector database?",
                         help='Initial question to ask (default: "What is a vector database?")')
 
-    args = parser.parse_args()
+    args, remaining = parser.parse_known_args()
 
-    # Read configuration from command line args, secrets file, or environment variables
-    llamastack_url = args.llamastack_url
-    if not llamastack_url:
-        llamastack_url = get('LLAMASTACK_URL') or os.environ.get('LLAMASTACK_URL')
+    # Load configuration from command line args, secrets file, or environment variables
+    # Pass remaining args to load_demo_config (handles the 5 standard params)
+    config = load_demo_config(argv=[sys.argv[0]] + remaining)
 
-    keycloak_url = args.keycloak_url
-    if not keycloak_url:
-        keycloak_url = get('KEYCLOAK_URL') or os.environ.get('KEYCLOAK_URL')
-
-    username = args.username
-    if not username:
-        username = get('KEYCLOAK_USERNAME') or os.environ.get('KEYCLOAK_USERNAME')
-
-    password = args.password
-    if not password:
-        password = get('KEYCLOAK_PASSWORD') or os.environ.get('KEYCLOAK_PASSWORD')
-
-    client_secret = args.client_secret
-    if not client_secret:
-        client_secret = get_or_set('KEYCLOAK_CLIENT_SECRET')
+    llamastack_url = config['llamastack_url']
+    keycloak_url = config['keycloak_url']
+    username = config['username']
+    password = config['password']
+    client_secret = config['client_secret']
 
     # Validate that we have at least the LlamaStack URL
     if not llamastack_url:

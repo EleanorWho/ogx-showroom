@@ -8,7 +8,7 @@ Agents:
 - Repo Query Agent: Queries llamastack/llama-stack GitHub via DeepWiki MCP
 - General Agent: Handles comparisons and general questions
 
-Usage: python scripts/multi-agent-demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]
+Usage: python demos/multi_agent/demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]
 Config read from: CLI args → environment variables
 """
 
@@ -19,11 +19,11 @@ from datetime import datetime
 from tabulate import tabulate
 from agents import Agent, Runner, RunConfig, MultiProvider, FunctionTool, HostedMCPTool
 
-from secrets_util import get_or_set, get
+# Add project root to path for imports
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
-# Add scripts directory to path for imports
-SCRIPT_DIR = Path(__file__).parent
-sys.path.insert(0, str(SCRIPT_DIR))
+from demos.common.utils import get_keycloak_token, load_demo_config
 
 
 # Configuration
@@ -114,15 +114,6 @@ SAMPLE_DOCUMENTS = [
 ]
 
 
-def get_jwt_token(keycloak_url: str, username: str, password: str, client_secret: str) -> str:
-    """Get JWT token from Keycloak"""
-    response = requests.post(
-        f"{keycloak_url}/realms/llamastack-demo/protocol/openid-connect/token",
-        data={'client_id': 'llamastack', 'client_secret': client_secret,
-              'username': username, 'password': password, 'grant_type': 'password'}
-    )
-    response.raise_for_status()
-    return response.json()['access_token']
 
 
 class KnowledgeBase:
@@ -257,11 +248,14 @@ async def main():
     """Main execution function"""
     had_failures = False
 
-    llamastack_url = sys.argv[1] if len(sys.argv) > 1 else get('LLAMASTACK_URL') or os.environ.get('LLAMASTACK_URL')
-    keycloak_url = sys.argv[2] if len(sys.argv) > 2 else get('KEYCLOAK_URL') or os.environ.get('KEYCLOAK_URL')
-    username = sys.argv[3] if len(sys.argv) > 3 else get('KEYCLOAK_USERNAME') or os.environ.get('KEYCLOAK_USERNAME')
-    password = sys.argv[4] if len(sys.argv) > 4 else get('KEYCLOAK_PASSWORD') or os.environ.get('KEYCLOAK_PASSWORD')
-    client_secret = sys.argv[5] if len(sys.argv) > 5 else get_or_set('KEYCLOAK_CLIENT_SECRET')
+    # Load configuration from command line args, secrets file, or environment variables
+    config = load_demo_config()
+
+    llamastack_url = config['llamastack_url']
+    keycloak_url = config['keycloak_url']
+    username = config['username']
+    password = config['password']
+    client_secret = config['client_secret']
 
     if not llamastack_url:
         print("Error: LLAMASTACK_URL is required")
@@ -284,7 +278,7 @@ async def main():
     if keycloak_url and username and password and client_secret:
         print(f"Authenticating with Keycloak as '{username}'...")
         try:
-            api_key = get_jwt_token(keycloak_url, username, password, client_secret)
+            api_key = get_keycloak_token(keycloak_url, username, password, client_secret, verbose=False)
             print("✓ Authentication successful!")
         except Exception as e:
             print(f"✗ Authentication failed: {e}")

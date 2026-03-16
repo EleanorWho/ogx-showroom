@@ -13,20 +13,20 @@ This script demonstrates how to:
 8. Generate answers using chat completions with RAG
 
 Usage:
-    python scripts/rag-demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]
+    python demos/rag/demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]
 
 The script reads configuration from (in order): command line args, ~/.lls_showroom_generated,
 environment variables. All arguments are optional if stored in ~/.lls_showroom_generated.
 
 Example with no arguments (reads from ~/.lls_showroom_generated):
-    python scripts/rag-demo.py
+    python demos/rag/demo.py
 
 Example with URLs only:
-    python scripts/rag-demo.py https://llamastack-distribution.apps.example.com \
+    python demos/rag/demo.py https://llamastack-distribution.apps.example.com \
         https://keycloak.apps.example.com
 
 Example with full authentication:
-    python scripts/rag-demo.py https://llamastack-distribution.apps.example.com \
+    python demos/rag/demo.py https://llamastack-distribution.apps.example.com \
         https://keycloak.apps.example.com \
         developer dev123
 
@@ -44,18 +44,11 @@ import os
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-# Add scripts directory to path for imports
-SCRIPT_DIR = Path(__file__).parent
-sys.path.insert(0, str(SCRIPT_DIR))
+# Add project root to path for imports
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
-try:
-    from secrets_util import get_or_set, get
-except ImportError:
-    # Fallback if secrets_util is not available
-    def get_or_set(key: str, default: Optional[str] = None, **kwargs) -> Optional[str]:
-        return default or os.environ.get(key)
-    def get(key: str, default: Optional[str] = None, **kwargs) -> Optional[str]:
-        return default or os.environ.get(key)
+from demos.common.utils import get_keycloak_token, load_demo_config
 
 
 class LlamaStackDemo:
@@ -77,33 +70,14 @@ class LlamaStackDemo:
     def authenticate(self) -> bool:
         """Get JWT token from Keycloak"""
         try:
-            token_url = f"{self.keycloak_url}/realms/llamastack-demo/protocol/openid-connect/token"
-
-            payload = {
-                'client_id': 'llamastack',
-                'client_secret': self.client_secret,
-                'username': self.username,
-                'password': self.password,
-                'grant_type': 'password'
-            }
-
-            print(f"\n🔐 Authenticating with Keycloak as '{self.username}'...")
-            response = requests.post(token_url, data=payload, verify=True)
-            response.raise_for_status()
-
-            token_data = response.json()
-            access_token = token_data.get('access_token')
-
-            if access_token:
-                self.session.headers.update({'Authorization': f'Bearer {access_token}'})
-                print(f"✓ Authentication successful")
-                print(f"  Token type: {token_data.get('token_type', 'Bearer')}")
-                print(f"  Expires in: {token_data.get('expires_in', 'unknown')} seconds")
-                return True
-            else:
-                print(f"✗ No access token in response")
-                return False
-
+            access_token = get_keycloak_token(
+                self.keycloak_url,
+                self.username,
+                self.password,
+                self.client_secret
+            )
+            self.session.headers.update({'Authorization': f'Bearer {access_token}'})
+            return True
         except Exception as e:
             print(f"✗ Authentication failed: {e}")
             return False
@@ -333,32 +307,14 @@ class LlamaStackDemo:
 
 
 def main():
-    # Read configuration from command line args, secrets file, or environment variables
-    # Priority: command line > secrets file > environment variables
+    # Load configuration from command line args, secrets file, or environment variables
+    config = load_demo_config()
 
-    llamastack_url = sys.argv[1] if len(sys.argv) > 1 else None
-    if not llamastack_url:
-        # Try secrets file, then env var
-        llamastack_url = get('LLAMASTACK_URL') or os.environ.get('LLAMASTACK_URL')
-
-    keycloak_url = sys.argv[2] if len(sys.argv) > 2 else None
-    if not keycloak_url:
-        # Try secrets file, then env var
-        keycloak_url = get('KEYCLOAK_URL') or os.environ.get('KEYCLOAK_URL')
-
-    username = sys.argv[3] if len(sys.argv) > 3 else None
-    if not username:
-        username = get('KEYCLOAK_USERNAME') or os.environ.get('KEYCLOAK_USERNAME')
-
-    password = sys.argv[4] if len(sys.argv) > 4 else None
-    if not password:
-        password = get('KEYCLOAK_PASSWORD') or os.environ.get('KEYCLOAK_PASSWORD')
-
-    # Get client secret from command line or persistent storage
-    # get_or_set checks: secrets file, env var, then generates if needed
-    client_secret = sys.argv[5] if len(sys.argv) > 5 else None
-    if not client_secret:
-        client_secret = get_or_set('KEYCLOAK_CLIENT_SECRET')
+    llamastack_url = config['llamastack_url']
+    keycloak_url = config['keycloak_url']
+    username = config['username']
+    password = config['password']
+    client_secret = config['client_secret']
 
     # Validate that we have at least the LlamaStack URL
     if not llamastack_url:
@@ -395,12 +351,12 @@ def main():
     # List available models
     models = demo.list_models()
 
-    # Load sample document from scripts directory
-    knowledge_base_file = SCRIPT_DIR / "knowledge_base.txt"
+    # Load sample document from fixtures
+    knowledge_base_file = PROJECT_ROOT / "demos" / "fixtures" / "knowledge_base.txt"
 
     if not knowledge_base_file.exists():
         print(f"\n✗ Sample document not found: {knowledge_base_file}")
-        print("  Please create knowledge_base.txt in scripts/")
+        print("  Please create knowledge_base.txt in demos/fixtures/")
         sys.exit(1)
 
     print(f"\nFound sample knowledge base document: {knowledge_base_file.name}")

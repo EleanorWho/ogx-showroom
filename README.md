@@ -55,16 +55,27 @@ cp config.sh.example ~/.lls_showroom
 After provisioning, URLs and credentials are automatically saved to `~/.lls_showroom_generated`:
 
 ```bash
-./scripts/rag-demo.py       # RAG with S3 file storage and vector search
-./scripts/responses-demo.py # Multi-turn conversations with response tracking
-./scripts/responses-demo.py --prompt "What is RAG?" # Single-turn with custom question
-./scripts/multi-agent-demo.py # Multi-agent research assistant with triage routing (requires OpenAI API key)
+# Run demos by tags (see demos/manifest.yaml for available tags)
+./test.sh              # Run all demos
+./test.sh simple       # Run simple demos only
+./test.sh complex      # Run complex demos (requires OpenAI API key)
+./test.sh rag,api      # Run demos tagged with 'rag' OR 'api'
+
+# Available tags: simple, complex, rag, api, agents, storage, embeddings, openai-required
 ```
 
-Or with explicit parameters:
+Or run individual demos directly:
 ```bash
-./scripts/rag-demo.py <LLAMASTACK_URL> <KEYCLOAK_URL> <USERNAME> <PASSWORD>
-./scripts/responses-demo.py <LLAMASTACK_URL> <KEYCLOAK_URL> <USERNAME> <PASSWORD>
+uv run demos/rag/demo.py              # RAG with S3 file storage and vector search
+uv run demos/responses/demo.py        # Multi-turn conversations with response tracking
+uv run demos/responses/demo.py --prompt "What is RAG?"  # Single-turn with custom question
+uv run demos/multi_agent/demo.py      # Multi-agent research assistant
+```
+
+With explicit parameters:
+```bash
+uv run demos/rag/demo.py <LLAMASTACK_URL> <KEYCLOAK_URL> <USERNAME> <PASSWORD>
+uv run demos/responses/demo.py <LLAMASTACK_URL> <KEYCLOAK_URL> <USERNAME> <PASSWORD>
 ```
 
 **Note**: The multi-agent demo requires `SHOWROOM_OPENAI_API_KEY` to be set in `~/.lls_showroom`.
