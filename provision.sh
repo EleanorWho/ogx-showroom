@@ -58,11 +58,34 @@ echo "  Overlay: ${OVERLAY}"
 [ -n "${SHOWROOM_LLAMA_STACK_IMAGE:-}" ] && echo "  Llama Stack Image: $SHOWROOM_LLAMA_STACK_IMAGE"
 [ -n "${SHOWROOM_OPERATOR_IMAGE:-}" ] && echo "  Operator Image: $SHOWROOM_OPERATOR_IMAGE"
 [ -n "${SHOWROOM_VLLM_URL:-}" ] && echo "  Inference URL: ${SHOWROOM_VLLM_URL}"
-[ -n "${SHOWROOM_VLLM_API_TOKEN:-}" ] && echo "  Inference Token: ${SHOWROOM_VLLM_API_TOKEN:0:8}..."
+[ -n "${SHOWROOM_VLLM_API_TOKEN:-}" ] && echo "  Inference Token: ${SHOWROOM_VLLM_API_TOKEN:0:4}..."
 [ -n "${SHOWROOM_VLLM_EMBEDDING_URL:-}" ] && echo "  Embedding URL: ${SHOWROOM_VLLM_EMBEDDING_URL}"
-[ -n "${SHOWROOM_VLLM_EMBEDDING_API_TOKEN:-}" ] && echo "  Embedding Token: ${SHOWROOM_VLLM_EMBEDDING_API_TOKEN:0:8}..."
-[ -n "${SHOWROOM_OPENAI_API_KEY:-}" ] && echo "  OpenAI API Key: ${SHOWROOM_OPENAI_API_KEY:0:8}..."
+[ -n "${SHOWROOM_VLLM_EMBEDDING_API_TOKEN:-}" ] && echo "  Embedding Token: ${SHOWROOM_VLLM_EMBEDDING_API_TOKEN:0:4}..."
+[ -n "${SHOWROOM_OPENAI_API_KEY:-}" ] && echo "  OpenAI API Key: ${SHOWROOM_OPENAI_API_KEY:0:4}..."
 echo ""
+
+# Generate/retrieve random passwords for services
+echo "Generating service passwords..."
+if ! command -v uv &> /dev/null; then
+  echo "ERROR: uv is required to run Python scripts (see Prerequisites in README.md)"
+  exit 1
+fi
+
+uv run "${SCRIPT_DIR}/scripts/generate_passwords.py" || {
+  echo "ERROR: Failed to generate passwords"
+  exit 1
+}
+echo ""
+
+# Export passwords as environment variables for envsubst
+POSTGRES_PASSWORD=$(uv run "${SCRIPT_DIR}/scripts/secrets_util.py" get POSTGRES_PASSWORD)
+export POSTGRES_PASSWORD
+MINIO_ROOT_PASSWORD=$(uv run "${SCRIPT_DIR}/scripts/secrets_util.py" get MINIO_ROOT_PASSWORD)
+export MINIO_ROOT_PASSWORD
+KEYCLOAK_ADMIN_PASSWORD=$(uv run "${SCRIPT_DIR}/scripts/secrets_util.py" get KEYCLOAK_ADMIN_PASSWORD)
+export KEYCLOAK_ADMIN_PASSWORD
+KEYCLOAK_PASSWORD=$(uv run "${SCRIPT_DIR}/scripts/secrets_util.py" get KEYCLOAK_PASSWORD)
+export KEYCLOAK_PASSWORD
 
 # Validate required configuration
 if [ -z "${SHOWROOM_VLLM_URL:-}" ] || [ -z "${SHOWROOM_VLLM_API_TOKEN:-}" ]; then
@@ -228,9 +251,9 @@ if [ "${OVERLAY}" = "reference" ]; then
   echo "Saving configuration to ~/.lls_showroom_generated for easy demo access..."
   [ -n "$ROUTE_URL" ] && uv run "${SCRIPT_DIR}/scripts/secrets_util.py" set LLAMASTACK_URL "https://${ROUTE_URL}" 2>/dev/null || true
   [ -n "$KEYCLOAK_EXTERNAL_URL" ] && uv run "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_URL "${KEYCLOAK_EXTERNAL_URL}" 2>/dev/null || true
-  # Save default demo user credentials (admin/admin123)
+  # Save default demo user credentials (admin/<random-password>)
   uv run "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_USERNAME "admin" 2>/dev/null || true
-  uv run "${SCRIPT_DIR}/scripts/secrets_util.py" set KEYCLOAK_PASSWORD "admin123" 2>/dev/null || true
+  # KEYCLOAK_PASSWORD is already set by generate_passwords.py, no need to set it again
 fi
 
 echo ""
@@ -277,7 +300,8 @@ if [ -n "$MINIO_CONSOLE_URL" ]; then
   echo "  Console URL: https://${MINIO_CONSOLE_URL}"
 fi
 echo "  Bucket: llamastack-files (auto-created)"
-echo "  Credentials: minioadmin / minioadmin123"
+echo "  User: minioadmin"
+echo "  Password: \$(uv run scripts/secrets_util.py get MINIO_ROOT_PASSWORD)"
 echo "  Storage: 20Gi PVC (persistent)"
 echo ""
 # Show Keycloak information if using reference overlay
@@ -286,23 +310,23 @@ if [ "${OVERLAY}" = "reference" ]; then
   echo "  URL: ${KEYCLOAK_EXTERNAL_URL:-N/A}"
   echo "  Admin Console: ${KEYCLOAK_EXTERNAL_URL:-N/A}/admin"
   echo "  Admin User: admin"
-  echo "  Admin Password: ${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+  echo "  Admin Password: \$(uv run scripts/secrets_util.py get KEYCLOAK_ADMIN_PASSWORD)"
   echo "  Realm: llamastack-demo"
   echo "  Client ID: llamastack"
   echo ""
-  echo "Demo Users (password: username + '123'):"
-  echo "  - admin/admin123 (role: admin, team: platform-team)"
-  echo "  - developer/dev123 (role: developer, team: ml-team)"
-  echo "  - user/user123 (role: user, team: data-team)"
+  echo "Demo Users:"
+  echo "  - admin / \$(uv run scripts/secrets_util.py get KEYCLOAK_PASSWORD) (role: admin, team: platform-team)"
+  echo "  - Other demo users (developer, user, etc.) / \$(uv run scripts/secrets_util.py get KEYCLOAK_DEMO_PASSWORD)"
   echo ""
   echo "To test authentication:"
   echo "  1. Get a token from Keycloak:"
   echo "     KEYCLOAK_CLIENT_SECRET=\$(uv run scripts/secrets_util.py get KEYCLOAK_CLIENT_SECRET)"
+  echo "     KEYCLOAK_PASSWORD=\$(uv run scripts/secrets_util.py get KEYCLOAK_PASSWORD)"
   echo "     curl -X POST '${KEYCLOAK_EXTERNAL_URL:-https://keycloak-url}/realms/llamastack-demo/protocol/openid-connect/token' \\"
   echo "       -d 'client_id=llamastack' \\"
   echo "       -d 'client_secret='\$KEYCLOAK_CLIENT_SECRET \\"
-  echo "       -d 'username=developer' \\"
-  echo "       -d 'password=dev123' \\"
+  echo "       -d 'username=admin' \\"
+  echo "       -d 'password='\$KEYCLOAK_PASSWORD \\"
   echo "       -d 'grant_type=password'"
   echo ""
   echo "  2. Use the token with LlamaStack API:"

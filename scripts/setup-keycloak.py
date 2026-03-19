@@ -347,6 +347,10 @@ class KeycloakSetup:
             'Content-Type': 'application/json'
         }
 
+        # Get the generated passwords from secrets
+        admin_demo_password = get_or_set('KEYCLOAK_PASSWORD')
+        demo_password = get_or_set('KEYCLOAK_DEMO_PASSWORD')
+
         users = [
             {
                 "username": "admin",
@@ -355,7 +359,7 @@ class KeycloakSetup:
                 "lastName": "User",
                 "enabled": True,
                 "emailVerified": True,
-                "credentials": [{"type": "password", "value": "admin123", "temporary": False}],
+                "credentials": [{"type": "password", "value": admin_demo_password, "temporary": False}],
                 "roles": ["admin"],
                 "teams": ["platform-team"]
             },
@@ -366,7 +370,7 @@ class KeycloakSetup:
                 "lastName": "User",
                 "enabled": True,
                 "emailVerified": True,
-                "credentials": [{"type": "password", "value": "dev123", "temporary": False}],
+                "credentials": [{"type": "password", "value": demo_password, "temporary": False}],
                 "roles": ["developer"],
                 "teams": ["ml-team"]
             },
@@ -377,7 +381,7 @@ class KeycloakSetup:
                 "lastName": "User",
                 "enabled": True,
                 "emailVerified": True,
-                "credentials": [{"type": "password", "value": "dev123", "temporary": False}],
+                "credentials": [{"type": "password", "value": demo_password, "temporary": False}],
                 "roles": ["developer"],
                 "teams": ["ml-team"]
             },
@@ -388,7 +392,7 @@ class KeycloakSetup:
                 "lastName": "User",
                 "enabled": True,
                 "emailVerified": True,
-                "credentials": [{"type": "password", "value": "dev123", "temporary": False}],
+                "credentials": [{"type": "password", "value": demo_password, "temporary": False}],
                 "roles": ["developer"],
                 "teams": ["data-team"]
             },
@@ -399,7 +403,7 @@ class KeycloakSetup:
                 "lastName": "User",
                 "enabled": True,
                 "emailVerified": True,
-                "credentials": [{"type": "password", "value": "user123", "temporary": False}],
+                "credentials": [{"type": "password", "value": demo_password, "temporary": False}],
                 "roles": ["user"],
                 "teams": ["data-team"]
             },
@@ -410,7 +414,7 @@ class KeycloakSetup:
                 "lastName": "One",
                 "enabled": True,
                 "emailVerified": True,
-                "credentials": [{"type": "password", "value": "user123", "temporary": False}],
+                "credentials": [{"type": "password", "value": demo_password, "temporary": False}],
                 "roles": [],
                 "teams": []
             },
@@ -421,7 +425,7 @@ class KeycloakSetup:
                 "lastName": "Two",
                 "enabled": True,
                 "emailVerified": True,
-                "credentials": [{"type": "password", "value": "user123", "temporary": False}],
+                "credentials": [{"type": "password", "value": demo_password, "temporary": False}],
                 "roles": [],
                 "teams": []
             }
@@ -528,26 +532,27 @@ class KeycloakSetup:
                 if not self.set_client_secret(self.client_secret):
                     print("Warning: Failed to set persistent client secret")
 
-            # Display client secret
+            # Display configuration summary
             client_secret = self.get_client_secret()
             if client_secret:
                 print(f"\n📋 Configuration Summary:")
                 print(f"   Realm: {self.realm_name}")
                 print(f"   Client ID: {self.client_id}")
-                print(f"   Client Secret: {client_secret}")
+                print(f"   Client Secret: $(uv run scripts/secrets_util.py get KEYCLOAK_CLIENT_SECRET)")
                 print(f"   JWKS URI: {self.base_url}/realms/{self.realm_name}/protocol/openid-connect/certs")
                 print(f"   Issuer: {self.base_url}/realms/{self.realm_name}")
                 print(f"   Token Endpoint: {self.base_url}/realms/{self.realm_name}/protocol/openid-connect/token")
                 print(f"\n   Secret stored in: ~/.lls_showroom_generated")
 
                 print(f"\n👥 Demo Users:")
-                print(f"   admin / admin123 (role: admin, team: platform-team)")
-                print(f"   developer / dev123 (role: developer, team: ml-team)")
-                print(f"   developer2 / dev223 (role: developer, team: ml-team)")
-                print(f"   developer3 / dev323 (role: developer, team: data-team)")
-                print(f"   user / user123 (role: user, team: data-team)")
-                print(f"   user2 / user123 (no role, no team)")
-                print(f"   user3 / user123 (no role, no team)")
+                print(f"   admin / $(uv run scripts/secrets_util.py get KEYCLOAK_PASSWORD) (role: admin, team: platform-team)")
+                print(f"   All other demo users use password: $(uv run scripts/secrets_util.py get KEYCLOAK_DEMO_PASSWORD)")
+                print(f"     - developer (role: developer, team: ml-team)")
+                print(f"     - developer2 (role: developer, team: ml-team)")
+                print(f"     - developer3 (role: developer, team: data-team)")
+                print(f"     - user (role: user, team: data-team)")
+                print(f"     - user2 (no role, no team)")
+                print(f"     - user3 (no role, no team)")
 
             print("\n✅ Keycloak setup completed successfully!")
             return True
