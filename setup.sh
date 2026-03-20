@@ -363,24 +363,30 @@ echo ""
 # Clean up any existing pod first (in case of previous failed runs)
 oc delete pod temp-config-extractor -n redhat-ods-operator --force --grace-period=0 --ignore-not-found=true 2>/dev/null || true
 
-echo "Pulling image and extracting config (this may take a few minutes for large images)..."
+echo "Creating temporary pod to extract config (this may take several minutes for large images)..."
 echo ""
 
-# Note: --rm outputs deletion message to stdout, so we filter it out
-# Use timeout command (5 minutes) as oc run --timeout doesn't work reliably
-if timeout 300 oc run temp-config-extractor \
-  --image="${CONFIG_IMAGE}" \
-  --image-pull-policy=Always \
-  --restart=Never --rm -i -n redhat-ods-operator --command -- cat /opt/app-root/config.yaml 2>&1 | \
-  grep -v -e "pod \"temp-config-extractor\" deleted" -e "Warning:" > "${SCRIPT_DIR}/config_base.yaml"; then
-  echo "Config extracted successfully to ${SCRIPT_DIR}/config_base.yaml"
-else
-  echo "Warning: Failed to extract config.yaml"
+# Create pod (this will trigger image pull but won't wait for it)
+oc run temp-config-extractor --image="${CONFIG_IMAGE}" --image-pull-policy=Always \
+  --restart=Never -n redhat-ods-operator --command -- sleep infinity
+
+# Wait for pod to be ready with extended timeout for large images (10 minutes)
+echo "Waiting for image pull and pod startup (timeout: 10 minutes)..."
+if ! oc wait --for=condition=Ready pod/temp-config-extractor \
+  -n redhat-ods-operator \
+  --timeout=600s; then
+  echo "ERROR: Timeout or failure waiting for pod to be ready"
   echo "Checking pod status..."
-  oc get pod temp-config-extractor -n redhat-ods-operator -o yaml 2>/dev/null || true
   oc describe pod temp-config-extractor -n redhat-ods-operator 2>/dev/null || true
+  oc delete pod temp-config-extractor -n redhat-ods-operator --force --grace-period=0 2>/dev/null || true
   exit 1
 fi
+
+# Extract the config file
+echo "Extracting config.yaml..."
+oc exec temp-config-extractor -n redhat-ods-operator -- cat /opt/app-root/config.yaml > "${SCRIPT_DIR}/config_base.yaml"
+echo "Cleaning up temporary pod..."
+oc delete pod temp-config-extractor -n redhat-ods-operator --force --grace-period=0 2>/dev/null || true
 
 echo ""
 echo "=========================================="
