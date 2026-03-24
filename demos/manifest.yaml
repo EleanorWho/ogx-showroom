@@ -44,3 +44,9 @@ demos:
     type: python
     requires_key: SHOWROOM_OPENAI_API_KEY
     description: Multi-agent system with triage routing to RAG, repository query, and general knowledge agents
+
+  - path: demos/tests/abac_isolation/demo.py
+    tags: [test, abac, auth, security]
+    name: ABAC Resource Isolation Test
+    type: python
+    description: Verifies ABAC ownership policies prevent cross-user resource access for vector stores, files, and responses
