@@ -130,13 +130,6 @@ export KEYCLOAK_EXTERNAL_URL="https://keycloak-redhat-ods-applications.${CLUSTER
 echo "Predicted Keycloak URL: ${KEYCLOAK_EXTERNAL_URL}"
 echo ""
 
-# Add auth configuration to config.yaml if using reference overlay
-if [ "${OVERLAY}" = "reference" ]; then
-  echo "Building config.yaml with ABAC auth configuration..."
-  cat "${SCRIPT_DIR}/config_base.yaml" "${OVERLAY_PATH}/config_abac.yaml.template" > "${OVERLAY_PATH}/config.yaml"
-  echo "Config.yaml built successfully"
-fi
-
 # Wait for operator deployment to be fully ready before applying CRs
 # This ensures all operator replicas are running and webhooks are registered
 echo ""
