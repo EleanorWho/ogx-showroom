@@ -72,6 +72,7 @@ echo ""
 DEMOS_FOUND=0
 DEMOS_RUN=0
 DEMOS_SKIPPED=0
+DEMOS_FAILED=0
 
 # Get filtered demos from manifest using Python parser
 while IFS='|' read -r demo_path demo_name demo_type demo_requires; do
@@ -96,7 +97,7 @@ while IFS='|' read -r demo_path demo_name demo_type demo_requires; do
   if run_demo "$demo_path" "$demo_type"; then
     DEMOS_RUN=$((DEMOS_RUN + 1))
   else
-    DEMOS_SKIPPED=$((DEMOS_SKIPPED + 1))
+    DEMOS_FAILED=$((DEMOS_FAILED + 1))
   fi
 
   echo ""
@@ -123,5 +124,13 @@ else
   if [ $DEMOS_SKIPPED -gt 0 ]; then
     echo "         $DEMOS_SKIPPED demo(s) skipped"
   fi
+  if [ $DEMOS_FAILED -gt 0 ]; then
+    echo "         $DEMOS_FAILED demo(s) failed"
+  fi
 fi
 echo "=========================================="
+
+# Exit with error if any demos failed
+if [ $DEMOS_FAILED -gt 0 ]; then
+  exit 1
+fi
