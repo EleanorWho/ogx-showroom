@@ -32,8 +32,8 @@ export SHOWROOM_PULL_SECRET="${SHOWROOM_PULL_SECRET:-}"
 
 # RHOAI catalog image and channel
 # Available channels: alpha, beta, fast, fast-3.x, stable, stable-3.x, stable-3.3, eus-2.25, etc.
-export SHOWROOM_CATALOG_IMAGE="${SHOWROOM_CATALOG_IMAGE:-quay.io/rhoai/rhoai-fbc-fragment:rhoai-3.4-ea.2}"
-export SHOWROOM_OPERATOR_CHANNEL="${SHOWROOM_OPERATOR_CHANNEL:-beta}"
+export SHOWROOM_CATALOG_IMAGE="${SHOWROOM_CATALOG_IMAGE:-quay.io/rhoai/rhoai-fbc-fragment:rhoai-3.4}"
+export SHOWROOM_OPERATOR_CHANNEL="${SHOWROOM_OPERATOR_CHANNEL:-stable-3.4}"
 
 
 # Llama Stack custom image (optional - set to override default)

@@ -100,6 +100,3 @@ spec:
           cpu: "1000m"
     distribution:
       name: rh-dev
-    # Reference the ConfigMap with the llama-stack configuration
-    userConfig:
-      configMapName: llamastack-config
