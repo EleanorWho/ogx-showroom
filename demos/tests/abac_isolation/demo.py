@@ -41,12 +41,14 @@ class ABACIsolationTest:
             'developer': {
                 'vector_stores': [],
                 'files': [],
-                'responses': []
+                'responses': [],
+                'conversations': []
             },
             'user': {
                 'vector_stores': [],
                 'files': [],
-                'responses': []
+                'responses': [],
+                'conversations': []
             }
         }
 
@@ -57,6 +59,17 @@ class ABACIsolationTest:
 
         # OpenAI clients for each user
         self.clients = {}
+
+    @staticmethod
+    def _parse_error_status(e: Exception) -> int:
+        """Extract HTTP status code from an OpenAI SDK exception."""
+        if hasattr(e, 'status_code'):
+            return e.status_code
+        error_str = str(e)
+        for code, keywords in [(403, ['403', 'Forbidden']), (404, ['404', 'Not Found']), (400, ['400', 'Bad Request'])]:
+            if any(k in error_str for k in keywords):
+                return code
+        return 0
 
     def authenticate_user(self, username: str) -> Optional[OpenAI]:
         """Authenticate a user and return OpenAI client"""
@@ -184,15 +197,7 @@ class ABACIsolationTest:
             file_obj = client.files.retrieve(file_id)
             return (True, 200)
         except Exception as e:
-            # Parse status code from error if possible
-            error_str = str(e)
-            if '403' in error_str or 'Forbidden' in error_str:
-                return (False, 403)
-            elif '404' in error_str or 'Not Found' in error_str:
-                return (False, 404)
-            elif '400' in error_str or 'Bad Request' in error_str:
-                return (False, 400)
-            return (False, 0)
+            return (False, self._parse_error_status(e))
 
     def delete_file(self, client: OpenAI, file_id: str) -> tuple[bool, int]:
         """Try to delete a file, return (success, status_code)"""
@@ -200,15 +205,7 @@ class ABACIsolationTest:
             client.files.delete(file_id)
             return (True, 200)
         except Exception as e:
-            # Parse status code from error if possible
-            error_str = str(e)
-            if '403' in error_str or 'Forbidden' in error_str:
-                return (False, 403)
-            elif '404' in error_str or 'Not Found' in error_str:
-                return (False, 404)
-            elif '400' in error_str or 'Bad Request' in error_str:
-                return (False, 400)
-            return (False, 0)
+            return (False, self._parse_error_status(e))
 
     def create_response(self, client: OpenAI, username: str, input_text: str,
                        instructions: str, stream: bool = False) -> Optional[str]:
@@ -261,14 +258,7 @@ class ABACIsolationTest:
             response = client.responses.retrieve(response_id)
             return (True, 200)
         except Exception as e:
-            error_str = str(e)
-            if '403' in error_str or 'Forbidden' in error_str:
-                return (False, 403)
-            elif '404' in error_str or 'Not Found' in error_str:
-                return (False, 404)
-            elif '400' in error_str or 'Bad Request' in error_str:
-                return (False, 400)
-            return (False, 0)
+            return (False, self._parse_error_status(e))
 
     def list_responses(self, client: OpenAI, limit: int = 10) -> List[str]:
         """List responses, return list of response IDs"""
@@ -321,14 +311,96 @@ class ABACIsolationTest:
             client.responses.delete(response_id)
             return (True, 200)
         except Exception as e:
-            error_str = str(e)
-            if '403' in error_str or 'Forbidden' in error_str:
-                return (False, 403)
-            elif '404' in error_str or 'Not Found' in error_str:
-                return (False, 404)
-            elif '400' in error_str or 'Bad Request' in error_str:
-                return (False, 400)
-            return (False, 0)
+            return (False, self._parse_error_status(e))
+
+    def create_conversation(self, client: OpenAI, username: str, name: str) -> Optional[str]:
+        """Create a conversation and track it"""
+        try:
+            conversation = client.conversations.create(
+                metadata={"owner": username, "name": name}
+            )
+            conversation_id = conversation.id
+            self.resources[username]['conversations'].append(conversation_id)
+            print(f"  ✓ Created conversation: {name} (ID: {conversation_id})")
+            return conversation_id
+        except Exception as e:
+            print(f"  ✗ Error creating conversation: {e}")
+            return None
+
+    def get_conversation(self, client: OpenAI, conversation_id: str) -> tuple[bool, int]:
+        """Try to get a conversation, return (success, status_code)"""
+        try:
+            client.conversations.retrieve(conversation_id)
+            return (True, 200)
+        except Exception as e:
+            return (False, self._parse_error_status(e))
+
+    def update_conversation(self, client: OpenAI, conversation_id: str, name: str) -> tuple[bool, int]:
+        """Try to update a conversation, return (success, status_code)"""
+        try:
+            client.conversations.update(
+                conversation_id,
+                metadata={"name": name}
+            )
+            return (True, 200)
+        except Exception as e:
+            return (False, self._parse_error_status(e))
+
+    def delete_conversation(self, client: OpenAI, conversation_id: str) -> tuple[bool, int]:
+        """Try to delete a conversation, return (success, status_code)"""
+        try:
+            client.conversations.delete(conversation_id)
+            return (True, 200)
+        except Exception as e:
+            return (False, self._parse_error_status(e))
+
+    def add_conversation_item(self, client: OpenAI, conversation_id: str, content: str, role: str = "user") -> Optional[str]:
+        """Add an item to a conversation, return item_id"""
+        try:
+            # items.create expects an iterable of items
+            result = client.conversations.items.create(
+                conversation_id,
+                items=[{
+                    "role": role,
+                    "content": content
+                }]
+            )
+            # Return first item ID from the created items
+            if hasattr(result, 'data') and len(result.data) > 0:
+                item_id = result.data[0].id
+                print(f"  ✓ Added item to conversation {conversation_id}: {item_id}")
+                return item_id
+            else:
+                print(f"  ✗ No items returned from create")
+                return None
+        except Exception as e:
+            print(f"  ✗ Error adding conversation item: {e}")
+            return None
+
+    def get_conversation_item(self, client: OpenAI, conversation_id: str, item_id: str) -> tuple[bool, int]:
+        """Try to get a conversation item, return (success, status_code)"""
+        try:
+            client.conversations.items.retrieve(item_id, conversation_id=conversation_id)
+            return (True, 200)
+        except Exception as e:
+            return (False, self._parse_error_status(e))
+
+    def list_conversation_items(self, client: OpenAI, conversation_id: str) -> tuple[bool, int, List[str]]:
+        """Try to list conversation items, return (success, status_code, item_ids)"""
+        try:
+            items_page = client.conversations.items.list(conversation_id)
+            item_ids = [item.id for item in items_page.data] if hasattr(items_page, 'data') else []
+            return (True, 200, item_ids)
+        except Exception as e:
+            return (False, self._parse_error_status(e), [])
+
+    def delete_conversation_item(self, client: OpenAI, conversation_id: str, item_id: str) -> tuple[bool, int]:
+        """Try to delete a conversation item, return (success, status_code)"""
+        try:
+            client.conversations.items.delete(item_id, conversation_id=conversation_id)
+            return (True, 200)
+        except Exception as e:
+            return (False, self._parse_error_status(e))
 
     def test_access(self, description: str, should_succeed: bool, success: bool, status_code: int):
         """Track a test result"""
@@ -417,7 +489,31 @@ This information is confidential and should not be shared outside the developmen
             stream=True
         )
 
-        if not all([dev_vector_store, dev_file, dev_response1, dev_response2]):
+        print("\nCreating conversation...")
+        dev_conversation = self.create_conversation(
+            self.clients['developer'],
+            'developer',
+            'developer-private-chat'
+        )
+
+        print("\nAdding items to conversation...")
+        dev_conv_item1 = None
+        dev_conv_item2 = None
+        if dev_conversation:
+            dev_conv_item1 = self.add_conversation_item(
+                self.clients['developer'],
+                dev_conversation,
+                'What are the security considerations for our ML pipeline?',
+                'user'
+            )
+            dev_conv_item2 = self.add_conversation_item(
+                self.clients['developer'],
+                dev_conversation,
+                'Security is critical for ML pipelines.',
+                'assistant'
+            )
+
+        if not all([dev_vector_store, dev_file, dev_response1, dev_response2, dev_conversation, dev_conv_item1, dev_conv_item2]):
             print("\n✗ Failed to create all developer resources. Cannot continue test.")
             return False
 
@@ -446,9 +542,25 @@ This information is confidential and should not be shared outside the developmen
         success, status = self.get_response_input_items(self.clients['developer'], dev_response1)
         self.test_access("Developer LIST response input items", True, success, status)
 
-        # Step 3b: User Creates Own Response
+        success, status = self.get_conversation(self.clients['developer'], dev_conversation)
+        self.test_access("Developer READ own conversation", True, success, status)
+
+        success, status = self.update_conversation(self.clients['developer'], dev_conversation, 'developer-updated-chat')
+        self.test_access("Developer UPDATE own conversation", True, success, status)
+
+        success, status = self.get_conversation_item(self.clients['developer'], dev_conversation, dev_conv_item1)
+        self.test_access("Developer READ own conversation item", True, success, status)
+
+        success, status, items = self.list_conversation_items(self.clients['developer'], dev_conversation)
+        self.test_access("Developer LIST own conversation items", True, success, status)
+        if success and len(items) >= 2:
+            print(f"    (found {len(items)} items)")
+        elif success:
+            print(f"    ⚠ Warning: expected >=2 items, found {len(items)}")
+
+        # Step 3b: User Creates Own Resources
         print("\n" + "=" * 70)
-        print("Step 3b: User Creates Own Response")
+        print("Step 3b: User Creates Own Resources")
         print("=" * 70)
 
         print("\nCreating user's response...")
@@ -460,8 +572,25 @@ This information is confidential and should not be shared outside the developmen
             stream=False
         )
 
-        if not user_response:
-            print("\n✗ Failed to create user response. Cannot continue test.")
+        print("\nCreating user's conversation...")
+        user_conversation = self.create_conversation(
+            self.clients['user'],
+            'user',
+            'user-private-chat'
+        )
+
+        print("\nAdding item to user's conversation...")
+        user_conv_item = None
+        if user_conversation:
+            user_conv_item = self.add_conversation_item(
+                self.clients['user'],
+                user_conversation,
+                'Tell me about AI safety',
+                'user'
+            )
+
+        if not all([user_response, user_conversation, user_conv_item]):
+            print("\n✗ Failed to create user resources. Cannot continue test.")
             return False
 
         # Step 3c: Verify List Filtering
@@ -525,6 +654,25 @@ This information is confidential and should not be shared outside the developmen
         success, status = self.delete_response(self.clients['user'], dev_response1)
         self.test_access("User DELETE developer's response", False, success, status)
 
+        success, status = self.get_conversation(self.clients['user'], dev_conversation)
+        self.test_access("User READ developer's conversation", False, success, status)
+
+        success, status = self.update_conversation(self.clients['user'], dev_conversation, 'user-hacked-chat')
+        self.test_access("User UPDATE developer's conversation", False, success, status)
+
+        success, status = self.get_conversation_item(self.clients['user'], dev_conversation, dev_conv_item1)
+        self.test_access("User READ developer's conversation item", False, success, status)
+
+        success, status, items = self.list_conversation_items(self.clients['user'], dev_conversation)
+        self.test_access("User LIST developer's conversation items", False, success, status)
+
+        if dev_conv_item1:
+            success, status = self.delete_conversation_item(self.clients['user'], dev_conversation, dev_conv_item1)
+            self.test_access("User DELETE developer's conversation item", False, success, status)
+
+        success, status = self.delete_conversation(self.clients['user'], dev_conversation)
+        self.test_access("User DELETE developer's conversation", False, success, status)
+
         # Step 5: Cleanup
         print("\n" + "=" * 70)
         print("Step 5: Cleanup")
@@ -552,6 +700,13 @@ This information is confidential and should not be shared outside the developmen
             else:
                 print(f"  ✗ Failed to delete response: {response_id} ({status})")
 
+        for conversation_id in self.resources['developer']['conversations']:
+            success, status = self.delete_conversation(self.clients['developer'], conversation_id)
+            if success:
+                print(f"  ✓ Deleted conversation: {conversation_id}")
+            else:
+                print(f"  ✗ Failed to delete conversation: {conversation_id} ({status})")
+
         print("\nUser cleaning up resources...")
         for response_id in self.resources['user']['responses']:
             success, status = self.delete_response(self.clients['user'], response_id)
@@ -559,6 +714,13 @@ This information is confidential and should not be shared outside the developmen
                 print(f"  ✓ Deleted response: {response_id}")
             else:
                 print(f"  ✗ Failed to delete response: {response_id} ({status})")
+
+        for conversation_id in self.resources['user']['conversations']:
+            success, status = self.delete_conversation(self.clients['user'], conversation_id)
+            if success:
+                print(f"  ✓ Deleted conversation: {conversation_id}")
+            else:
+                print(f"  ✗ Failed to delete conversation: {conversation_id} ({status})")
 
         # Print summary
         print("\n" + "=" * 70)
@@ -587,6 +749,7 @@ This information is confidential and should not be shared outside the developmen
             print("  - Vector stores (for embeddings and semantic search)")
             print("  - Files (uploaded documents)")
             print("  - Responses (AI conversations)")
+            print("  - Conversations (multi-turn dialogues)")
             print("\nTested response endpoints:")
             print("  - POST /v1/responses (create response)")
             print("  - POST /v1/responses (streaming response)")
@@ -595,6 +758,15 @@ This information is confidential and should not be shared outside the developmen
             print("  - GET /v1/responses (list filtering - users only see own)")
             print("  - GET /v1/responses/{id}/input_items (list input items)")
             print("  - DELETE /v1/responses/{id} (delete response)")
+            print("\nTested conversation endpoints:")
+            print("  - POST /v1/conversations (create conversation)")
+            print("  - GET /v1/conversations/{id} (retrieve conversation)")
+            print("  - POST /v1/conversations/{id} (update conversation)")
+            print("  - DELETE /v1/conversations/{id} (delete conversation)")
+            print("  - POST /v1/conversations/{id}/items (add item)")
+            print("  - GET /v1/conversations/{id}/items/{item_id} (get item)")
+            print("  - GET /v1/conversations/{id}/items (list items)")
+            print("  - DELETE /v1/conversations/{id}/items/{item_id} (delete item)")
             return True
         else:
             print("\n" + "=" * 70)
