@@ -36,8 +36,8 @@ etcd:
 milvus:
   enabled: true
   image:
-    repository: quay.io/ehu-aaet3/imagehost
-    tag: milvus-2.5.26
+    repository: quay.io/rh-aiservices-bu/milvus-openshift
+    tag: v2.6.15-multiarch
   persistence:
     size: 10Gi
   resources:
