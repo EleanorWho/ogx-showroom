@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  labels:
+    {{- include "postgres.labels" . | nindent 4 }}
+data:
+  create-keycloak-db.sh: |
+    #!/bin/bash
+    psql -d "$POSTGRESQL_DATABASE" <<-SQL
+      SELECT 'CREATE DATABASE keycloak'
+      WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'keycloak')\gexec
+
+      DO \$\$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'keycloak') THEN
+          CREATE ROLE keycloak WITH LOGIN PASSWORD '$KEYCLOAK_DB_PASSWORD';
+        END IF;
+      END
+      \$\$;
+
+      GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
+    SQL
+
+    psql -d keycloak -c "GRANT ALL ON SCHEMA public TO keycloak;"

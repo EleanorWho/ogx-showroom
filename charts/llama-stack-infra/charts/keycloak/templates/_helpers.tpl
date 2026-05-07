@@ -15,3 +15,7 @@ app: {{ include "keycloak.name" . }}
 {{- define "keycloak.secretName" -}}
 keycloak-secret
 {{- end }}
+
+{{- define "keycloak.dbSecretName" -}}
+keycloak-db-secret
+{{- end }}

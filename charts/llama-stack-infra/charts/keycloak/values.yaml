@@ -1,6 +1,6 @@
 image:
   repository: quay.io/keycloak/keycloak
-  tag: 26.0.0
+  tag: 26.6.1
   pullPolicy: IfNotPresent
 
 auth:
@@ -8,9 +8,18 @@ auth:
   clientSecret: ""
   demoAdminPassword: ""
   demoUserPassword: ""
+  dbPassword: ""
 
 route:
   enabled: true
+
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "500m"
+  limits:
+    memory: "1Gi"
+    cpu: "1000m"
 
 setup:
   enabled: true
