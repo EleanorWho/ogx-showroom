@@ -13,6 +13,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Parse command line arguments for tag filtering
 FILTER_TAGS="${1:-all}"
 
+# Read a value from values-local.yaml
+read_yaml() {
+  local values_file="${SCRIPT_DIR}/values-local.yaml"
+  if [ ! -f "${values_file}" ]; then
+    echo ""
+    return
+  fi
+  python3 -c "
+import yaml, functools
+with open('${values_file}') as f:
+    data = yaml.safe_load(f)
+keys = '$1'.split('.')
+print(functools.reduce(lambda d, k: d.get(k, '') if isinstance(d, dict) else '', keys, data) or '')
+"
+}
+
 # Check if required environment key exists
 check_required_key() {
   local key_name="$1"
@@ -21,13 +37,18 @@ check_required_key() {
     return 0  # No requirement
   fi
 
-  # Check in ~/.lls_showroom file
-  if [ -f ~/.lls_showroom ]; then
-    # shellcheck source=/dev/null
-    source ~/.lls_showroom
-  fi
+  # Map known keys to values-local.yaml paths
+  case "$key_name" in
+    SHOWROOM_OPENAI_API_KEY)
+      local val
+      val="$(read_yaml llamastack.openaiApiKey)"
+      [ -n "$val" ] && return 0
+      val="$(read_yaml openaiApiKey)"
+      [ -n "$val" ] && return 0
+      ;;
+  esac
 
-  # Check if the variable is set
+  # Fall back to environment variable
   if [ -n "${!key_name:-}" ]; then
     return 0
   fi
@@ -56,6 +77,19 @@ run_demo() {
       ;;
   esac
 }
+
+# Export K8s credentials as env vars so all demos can read them
+echo "Loading credentials from K8s cluster..."
+export LLAMASTACK_URL="${LLAMASTACK_URL:-$(python3 "${SCRIPT_DIR}/scripts/read_k8s.py" route llamastack-distribution 2>/dev/null || echo "")}"
+export KEYCLOAK_URL="${KEYCLOAK_URL:-$(python3 "${SCRIPT_DIR}/scripts/read_k8s.py" route keycloak 2>/dev/null || echo "")}"
+export KEYCLOAK_CLIENT_SECRET="${KEYCLOAK_CLIENT_SECRET:-$(python3 "${SCRIPT_DIR}/scripts/read_k8s.py" secret keycloak-secret KEYCLOAK_CLIENT_SECRET 2>/dev/null || echo "")}"
+export KEYCLOAK_USERNAME="${KEYCLOAK_USERNAME:-admin}"
+export KEYCLOAK_PASSWORD="${KEYCLOAK_PASSWORD:-$(python3 "${SCRIPT_DIR}/scripts/read_k8s.py" secret keycloak-secret KEYCLOAK_PASSWORD 2>/dev/null || echo "")}"
+export KEYCLOAK_DEMO_PASSWORD="${KEYCLOAK_DEMO_PASSWORD:-$(python3 "${SCRIPT_DIR}/scripts/read_k8s.py" secret keycloak-secret KEYCLOAK_DEMO_PASSWORD 2>/dev/null || echo "")}"
+
+echo "  LLAMASTACK_URL: ${LLAMASTACK_URL:-<not found>}"
+echo "  KEYCLOAK_URL: ${KEYCLOAK_URL:-<not found>}"
+echo ""
 
 # Main execution
 echo "=========================================="

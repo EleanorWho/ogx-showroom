@@ -14,6 +14,7 @@ Usage:
     uv run demos/tests/abac_isolation/demo.py
 """
 
+import os
 import sys
 import json
 import io
@@ -26,7 +27,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from demos.common.utils import get_keycloak_token, load_demo_config
-from scripts.secrets_util import get
+from scripts.read_k8s import get_secret
 
 
 class ABACIsolationTest:
@@ -783,28 +784,28 @@ def main():
     keycloak_url = config['keycloak_url']
     client_secret = config['client_secret']
 
-    # Get demo password
-    password = get('KEYCLOAK_DEMO_PASSWORD')
+    # Get demo password from K8s or env var
+    password = os.environ.get('KEYCLOAK_DEMO_PASSWORD') or get_secret('keycloak-secret', 'KEYCLOAK_DEMO_PASSWORD')
 
     # Validate required configuration
     if not llamastack_url:
         print("Error: LLAMASTACK_URL is required")
-        print("Set it in ~/.lls_showroom_generated or environment variables")
+        print("Set it as an environment variable or ensure oc is logged in to the cluster")
         sys.exit(1)
 
     if not keycloak_url:
         print("Error: KEYCLOAK_URL is required for this test")
-        print("Set it in ~/.lls_showroom_generated or environment variables")
+        print("Set it as an environment variable or ensure oc is logged in to the cluster")
         sys.exit(1)
 
     if not client_secret:
         print("Error: KEYCLOAK_CLIENT_SECRET is required for this test")
-        print("Set it in ~/.lls_showroom_generated or environment variables")
+        print("Set it as an environment variable or ensure oc is logged in to the cluster")
         sys.exit(1)
 
     if not password:
         print("Error: KEYCLOAK_DEMO_PASSWORD is required for this test")
-        print("Please run provision.sh to set up demo users, or set the password manually:")
+        print("Ensure oc is logged in to the cluster, or set the password manually:")
         print("  export KEYCLOAK_DEMO_PASSWORD=your-password")
         sys.exit(1)
 

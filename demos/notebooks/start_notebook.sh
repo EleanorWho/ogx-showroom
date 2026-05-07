@@ -7,45 +7,49 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+NAMESPACE="${NAMESPACE:-redhat-ods-applications}"
 
-# Source showroom configuration
-if [ -f ~/.lls_showroom ]; then
-  # shellcheck source=/dev/null
-  source ~/.lls_showroom
-fi
-
-# Load LlamaStack URL and auth from ~/.lls_showroom_generated
-if [ -f ~/.lls_showroom_generated ]; then
-  eval "$(uv run python -c "
-import yaml
-with open('$HOME/.lls_showroom_generated', 'r') as f:
+# Read a value from values-local.yaml
+read_yaml() {
+  local values_file="${PROJECT_ROOT}/values-local.yaml"
+  [ -f "${values_file}" ] || return
+  python3 -c "
+import yaml, functools
+with open('${values_file}') as f:
     data = yaml.safe_load(f)
-    secrets = data.get('secrets', {})
-    print('export LLAMASTACK_URL=\"{}\"'.format(secrets.get('LLAMASTACK_URL', '')))
-    print('export KEYCLOAK_URL=\"{}\"'.format(secrets.get('KEYCLOAK_URL', '')))
-    print('export KEYCLOAK_CLIENT_SECRET=\"{}\"'.format(secrets.get('KEYCLOAK_CLIENT_SECRET', '')))
-    print('export KEYCLOAK_USERNAME=\"{}\"'.format(secrets.get('KEYCLOAK_USERNAME', '')))
-    print('export KEYCLOAK_PASSWORD=\"{}\"'.format(secrets.get('KEYCLOAK_PASSWORD', '')))
-")"
+keys = '$1'.split('.')
+print(functools.reduce(lambda d, k: d.get(k, '') if isinstance(d, dict) else '', keys, data) or '')
+"
+}
 
-  if [ -n "${KEYCLOAK_URL:-}" ]; then
-    echo "Authenticating with Keycloak..."
-    TOKEN_RESPONSE=$(curl -s -X POST "${KEYCLOAK_URL}/realms/llamastack-demo/protocol/openid-connect/token" \
-      -d "client_id=llamastack" \
-      -d "client_secret=${KEYCLOAK_CLIENT_SECRET}" \
-      -d "username=${KEYCLOAK_USERNAME}" \
-      -d "password=${KEYCLOAK_PASSWORD}" \
-      -d "grant_type=password")
+# Load credentials from K8s cluster
+export LLAMASTACK_URL="${LLAMASTACK_URL:-$(python3 "${PROJECT_ROOT}/scripts/read_k8s.py" route llamastack-distribution 2>/dev/null || echo "")}"
+export KEYCLOAK_URL="${KEYCLOAK_URL:-$(python3 "${PROJECT_ROOT}/scripts/read_k8s.py" route keycloak 2>/dev/null || echo "")}"
+KEYCLOAK_CLIENT_SECRET="${KEYCLOAK_CLIENT_SECRET:-$(python3 "${PROJECT_ROOT}/scripts/read_k8s.py" secret keycloak-secret KEYCLOAK_CLIENT_SECRET 2>/dev/null || echo "")}"
+KEYCLOAK_USERNAME="${KEYCLOAK_USERNAME:-admin}"
+KEYCLOAK_PASSWORD="${KEYCLOAK_PASSWORD:-$(python3 "${PROJECT_ROOT}/scripts/read_k8s.py" secret keycloak-secret KEYCLOAK_PASSWORD 2>/dev/null || echo "")}"
 
-    export LLAMASTACK_APIKEY=$(echo "$TOKEN_RESPONSE" | uv run python -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
-    echo "Authentication successful"
-  fi
+if [ -n "${KEYCLOAK_URL:-}" ]; then
+  echo "Authenticating with Keycloak..."
+  TOKEN_RESPONSE=$(curl -s -X POST "${KEYCLOAK_URL}/realms/llamastack-demo/protocol/openid-connect/token" \
+    -d "client_id=llamastack" \
+    -d "client_secret=${KEYCLOAK_CLIENT_SECRET}" \
+    -d "username=${KEYCLOAK_USERNAME}" \
+    -d "password=${KEYCLOAK_PASSWORD}" \
+    -d "grant_type=password")
+
+  export LLAMASTACK_APIKEY=$(echo "$TOKEN_RESPONSE" | uv run python -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+  echo "Authentication successful"
 fi
 
-# Set model env vars
-INFERENCE_MODEL_NAME="${SHOWROOM_INFERENCE_MODEL:-llama-3-2-3b}"
-EMBEDDING_MODEL_NAME="${SHOWROOM_EMBEDDING_MODEL:-nomic-ai/nomic-embed-text-v1.5}"
-EMBEDDING_DIM="${SHOWROOM_EMBEDDING_DIMENSION:-768}"
+# Set model env vars from values-local.yaml
+INFERENCE_MODEL_NAME="$(read_yaml llamastack.inference.model)"
+INFERENCE_MODEL_NAME="${INFERENCE_MODEL_NAME:-llama-3-2-3b}"
+EMBEDDING_MODEL_NAME="$(read_yaml llamastack.embedding.providerModelId)"
+EMBEDDING_MODEL_NAME="${EMBEDDING_MODEL_NAME:-nomic-ai/nomic-embed-text-v1.5}"
+EMBEDDING_DIM="$(read_yaml llamastack.embedding.dimension)"
+EMBEDDING_DIM="${EMBEDDING_DIM:-768}"
 
 if [[ "$EMBEDDING_MODEL_NAME" == "nomic-embed-text-v1.5" ]]; then
   EMBEDDING_MODEL_NAME="nomic-ai/nomic-embed-text-v1.5"

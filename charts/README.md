@@ -12,36 +12,28 @@
 
 - OpenShift cluster with `oc` CLI logged in (`oc whoami` works)
 - Helm 3.x (`brew install helm` or `dnf install helm`)
-- `~/.lls_showroom` config file with `SHOWROOM_PULL_SECRET` set (see `config.sh.example`)
+- `values-local.yaml` config file (see `values-local.yaml.example`)
 
 ## Full Deployment (from a clean cluster)
 
-### Step 1: Set up cluster-level prerequisites
+### Step 1: Create local values file
 
 ```bash
-# Copy and edit config if you haven't already
-cp config.sh.example ~/.lls_showroom
-# Edit ~/.lls_showroom — set SHOWROOM_PULL_SECRET (required)
-
-# Run cluster setup (installs Kyverno + RHOAI operator)
-./setup.sh
+cp values-local.yaml.example values-local.yaml
+# Edit values-local.yaml:
+#   - Set cluster.pullSecret (required for setup-cluster.sh)
+#   - Set llamastack.inference.vllmUrl and vllmApiToken (required)
+#   - Set llamastack.embedding.vllmUrl and vllmApiToken (required)
 ```
 
-### Step 2: Create local values file
+### Step 2: Set up cluster-level prerequisites
 
 ```bash
-cat > values-local.yaml <<EOF
-llamastack:
-  inference:
-    vllmUrl: "https://your-vllm-inference-endpoint/v1"
-    vllmApiToken: "your-inference-token"
-  embedding:
-    vllmUrl: "https://your-vllm-embedding-endpoint/v1"
-    vllmApiToken: "your-embedding-token"
-EOF
+# Installs Kyverno + RHOAI operator (reads from values-local.yaml)
+./setup-cluster.sh
 ```
 
-### Step 3: Deploy everything
+### Step 3: Deploy with Helm
 
 ```bash
 ./provision.sh
@@ -52,7 +44,6 @@ This runs the full deployment in order:
 2. `helm install` llama-stack-infra (PostgreSQL, etcd, Milvus, MinIO, Keycloak)
 3. `helm install` llama-stack-rhoai (LlamaStackDistribution, Route, NetworkPolicy)
 4. Waits for LlamaStackDistribution to be ready
-5. Syncs generated secrets to `~/.lls_showroom_generated`
 
 ### Step 4: Run tests
 
@@ -66,7 +57,7 @@ This runs the full deployment in order:
 ./unprovision.sh
 
 # Optional: remove operator and cluster-level resources
-./cleanup.sh
+./cleanup-cluster.sh
 ```
 
 ## Upgrade
