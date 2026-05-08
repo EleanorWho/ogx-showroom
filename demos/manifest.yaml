@@ -38,6 +38,12 @@ demos:
     type: python
     description: Demonstrates RAG with S3 file storage, embeddings, and vector search
 
+  - path: demos/rag/demo_file_search.py
+    tags: [ci, rag, file-search, responses]
+    name: RAG with file_search + Responses API
+    type: python
+    description: Server-side RAG using OpenAI file_search tool with Responses API
+
   - path: demos/responses/demo.py
     tags: [ci, responses]
     name: OpenAI Responses API Demo
