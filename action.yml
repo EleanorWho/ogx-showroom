@@ -27,7 +27,7 @@ inputs:
     default: ''
 outputs:
   scripts_dir:
-    description: 'Directory containing provision.sh, test.sh, cleanup.sh'
+    description: 'Directory containing setup.sh, test.sh, cleanup.sh, charts/, and manifests/'
     value: ${{ steps.showroom.outputs.scripts_dir }}
 runs:
   using: 'composite'
@@ -39,6 +39,9 @@ runs:
 
     - name: Install uv
       uses: astral-sh/setup-uv@v5
+
+    - name: Install Helm
+      uses: azure/setup-helm@v4
 
     - name: Login to OpenShift cluster
       if: inputs.oc_server != '' && inputs.oc_token != ''

@@ -56,9 +56,25 @@ jobs:
         run: |
           ${{ steps.setup.outputs.scripts_dir }}/setup.sh
 
-      - name: Run provision.sh
+      - name: Apply RHOAI CRs
         run: |
-          ${{ steps.setup.outputs.scripts_dir }}/provision.sh
+          SCRIPTS=${{ steps.setup.outputs.scripts_dir }}
+          oc apply -f $SCRIPTS/manifests/dscinitialization.yaml
+          oc apply -f $SCRIPTS/manifests/datasciencecluster.yaml
+          oc wait --for=jsonpath='{.status.phase}'=Ready datasciencecluster/default-dsc --timeout=600s
+
+      - name: Helm install llama-stack-infra
+        run: |
+          helm upgrade --install llama-stack-infra ${{ steps.setup.outputs.scripts_dir }}/charts/llama-stack-infra \
+            -n redhat-ods-applications --create-namespace --wait --timeout 10m
+
+      - name: Helm install llama-stack-rhoai
+        run: |
+          SCRIPTS=${{ steps.setup.outputs.scripts_dir }}
+          helm upgrade --install llama-stack-rhoai $SCRIPTS/charts/llama-stack-rhoai \
+            -n redhat-ods-applications -f $SCRIPTS/values-local.yaml --wait --timeout 15m
+          oc wait --for=jsonpath='{.status.phase}'=Ready llamastackdistribution/llamastack-distribution \
+            -n redhat-ods-applications --timeout=600s
 
       - name: Run tests
         run: |
@@ -80,10 +96,16 @@ jobs:
           echo -e "\n=== Pod Logs (last 50 lines) ==="
           oc logs -n redhat-ods-applications --tail=-1 -l app=llama-stack || echo "No logs available"
 
-      - name: Run unprovision.sh
+      - name: Helm uninstall
         if: always()
         run: |
-          ${{ steps.setup.outputs.scripts_dir }}/unprovision.sh
+          SCRIPTS=${{ steps.setup.outputs.scripts_dir }}
+          NS=redhat-ods-applications
+          helm uninstall llama-stack-rhoai -n $NS --timeout 5m 2>/dev/null || true
+          helm uninstall llama-stack-infra -n $NS --timeout 5m 2>/dev/null || true
+          oc delete -f $SCRIPTS/manifests/datasciencecluster.yaml --timeout=120s 2>/dev/null || true
+          oc delete -f $SCRIPTS/manifests/dscinitialization.yaml --timeout=120s 2>/dev/null || true
+          oc delete job -l app.kubernetes.io/managed-by=Helm -n $NS 2>/dev/null || true
 
       - name: Run cleanup.sh
         if: always()
