@@ -39,10 +39,10 @@ Reference architecture and CI for [Llama Stack](https://github.com/meta-llama/ll
 
 ## Setup
 
-Create environment file (see `config.sh.example` for details):
+Create local config file (see `values-local.yaml.example` for details):
 ```bash
-cp config.sh.example ~/.lls_showroom
-# Edit ~/.lls_showroom and set required values
+cp values-local.yaml.example values-local.yaml
+# Edit values-local.yaml and set required values
 ```
 
 ```bash
@@ -52,7 +52,7 @@ cp config.sh.example ~/.lls_showroom
 
 ## Run Demos
 
-After provisioning, URLs and credentials are automatically saved to `~/.lls_showroom_generated`:
+After provisioning, credentials are read directly from K8s secrets at runtime:
 
 ```bash
 # Run demos by tags (see demos/manifest.yaml for available tags)
@@ -79,7 +79,7 @@ uv run demos/rag/demo.py <LLAMASTACK_URL> <KEYCLOAK_URL> <USERNAME> <PASSWORD>
 uv run demos/responses/demo.py <LLAMASTACK_URL> <KEYCLOAK_URL> <USERNAME> <PASSWORD>
 ```
 
-**Note**: The multi-agent demo requires `SHOWROOM_OPENAI_API_KEY` to be set in `~/.lls_showroom`.
+**Note**: The multi-agent demo requires `llamastack.openaiApiKey` to be set in `values-local.yaml`.
 
 ### Jupyter Notebooks
 
@@ -111,8 +111,9 @@ Test local LlamaStack code changes on the cluster for rapid iteration.
 # 1. Clone llama-stack locally
 git clone https://github.com/meta-llama/llama-stack ~/llama-stack
 
-# 2. Configure
-echo "export LLAMA_STACK_SOURCE_PATH=~/llama-stack" >> ~/.lls_showroom
+# 2. Configure (add to values-local.yaml)
+#    devLocal:
+#      llamaStackSourcePath: ~/llama-stack
 
 # 3. Deploy your changes
 ./deploy-local.sh
@@ -129,16 +130,16 @@ curl https://$(oc get route llamastack-distribution -o jsonpath='{.spec.host}')/
 
 ### Configuration
 
-Add to `~/.lls_showroom`:
+Add to `values-local.yaml` under `devLocal:` (see `values-local.yaml.example`):
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LLAMA_STACK_SOURCE_PATH` | *(required)* | Path to local llama-stack repository |
-| `DEV_IMAGE_NAMESPACE` | `redhat-ods-applications` | Namespace for images |
-| `DEV_IMAGE_NAME` | `llama-stack-dev` | Image name |
-| `DEV_IMAGE_TAG` | `dev-YYYYMMDD-HHMMSS` | Image tag (auto-generated) |
-| `DEV_BASE_IMAGE` | *(auto-detected)* | Base image to use |
-| `CONTAINER_TOOL` | `podman` | Container tool (podman/docker) |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `devLocal.llamaStackSourcePath` | *(required)* | Path to local llama-stack repository |
+| `devLocal.imageNamespace` | `redhat-ods-applications` | Namespace for images |
+| `devLocal.imageName` | `llama-stack-dev` | Image name |
+| `devLocal.imageTag` | `dev-YYYYMMDD-HHMMSS` | Image tag (auto-generated) |
+| `devLocal.baseImage` | *(auto-detected)* | Base image to use |
+| `devLocal.containerTool` | `podman` | Container tool (podman/docker) |
 
 ### Troubleshooting
 

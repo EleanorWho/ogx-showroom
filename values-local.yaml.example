@@ -5,7 +5,7 @@
 #
 # This file is used by:
 #   - helm-provision.sh (llamastack section, passed via -f to Helm)
-#   - setup-cluster.sh (cluster section)
+#   - setup.sh (cluster section)
 #   - deploy-local.sh (devLocal section)
 #   - test.sh, demos (model names, openaiApiKey)
 #
