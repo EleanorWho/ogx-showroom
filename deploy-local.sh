@@ -16,18 +16,7 @@ set -euo pipefail
 # Get the directory of this script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VALUES_FILE="${SCRIPT_DIR}/values-local.yaml"
-
-# Read a value from values-local.yaml
-read_yaml() {
-  [ -f "${VALUES_FILE}" ] || return
-  python3 -c "
-import yaml, functools
-with open('${VALUES_FILE}') as f:
-    data = yaml.safe_load(f)
-keys = '$1'.split('.')
-print(functools.reduce(lambda d, k: d.get(k, '') if isinstance(d, dict) else '', keys, data) or '')
-"
-}
+source "${SCRIPT_DIR}/scripts/common.sh"
 
 # Load configuration from values-local.yaml with defaults
 LLAMA_STACK_SOURCE_PATH="${LLAMA_STACK_SOURCE_PATH:-$(read_yaml devLocal.llamaStackSourcePath)}"

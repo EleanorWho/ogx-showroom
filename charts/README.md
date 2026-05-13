@@ -21,7 +21,7 @@
 ```bash
 cp values-local.yaml.example values-local.yaml
 # Edit values-local.yaml:
-#   - Set cluster.pullSecret (required for setup-cluster.sh)
+#   - Set cluster.pullSecret (required for setup.sh)
 #   - Set llamastack.inference.vllmUrl and vllmApiToken (required)
 #   - Set llamastack.embedding.vllmUrl and vllmApiToken (required)
 ```
@@ -30,7 +30,7 @@ cp values-local.yaml.example values-local.yaml
 
 ```bash
 # Installs Kyverno + RHOAI operator (reads from values-local.yaml)
-./setup-cluster.sh
+./setup.sh
 ```
 
 ### Step 3: Deploy with Helm
@@ -57,7 +57,7 @@ This runs the full deployment in order:
 ./unprovision.sh
 
 # Optional: remove operator and cluster-level resources
-./cleanup-cluster.sh
+./cleanup.sh
 ```
 
 ## Upgrade
