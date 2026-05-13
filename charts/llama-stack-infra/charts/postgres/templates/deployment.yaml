@@ -39,9 +39,16 @@ spec:
                 secretKeyRef:
                   name: {{ include "postgres.secretName" . }}
                   key: POSTGRES_DB
+            - name: KEYCLOAK_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: KEYCLOAK_DB_PASSWORD
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/pgsql/data
+            - name: postgres-init
+              mountPath: /opt/app-root/src/postgresql-start/
           livenessProbe:
             exec:
               command:
@@ -72,3 +79,6 @@ spec:
         - name: postgres-storage
           persistentVolumeClaim:
             claimName: postgres-pvc
+        - name: postgres-init
+          configMap:
+            name: postgres-init

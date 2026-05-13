@@ -57,8 +57,8 @@ class KeycloakSetup:
             "realm": self.realm_name,
             "enabled": True,
             "displayName": "LlamaStack Demo Realm",
-            "accessTokenLifespan": 43200,
-            "ssoSessionMaxLifespan": 43200,
+            "accessTokenLifespan": 3600,
+            "ssoSessionMaxLifespan": 36000,
             "registrationAllowed": False,
             "loginWithEmailAllowed": True,
             "duplicateEmailsAllowed": False
@@ -88,11 +88,11 @@ class KeycloakSetup:
             "serviceAccountsEnabled": True,
             "standardFlowEnabled": True,
             "implicitFlowEnabled": False,
-            "redirectUris": ["*"],
-            "webOrigins": ["*"],
+            "redirectUris": ["https://*", "http://localhost:*"],
+            "webOrigins": ["+"],
             "protocol": "openid-connect",
             "attributes": {
-                "access.token.lifespan": "43200"
+                "access.token.lifespan": "3600"
             }
         }
         url = f"{self.base_url}/admin/realms/{self.realm_name}/clients"
