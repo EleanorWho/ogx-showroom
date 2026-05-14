@@ -27,7 +27,7 @@ inputs:
     default: ''
 outputs:
   scripts_dir:
-    description: 'Directory containing setup.sh, test.sh, cleanup.sh, charts/, and manifests/'
+    description: 'Directory containing provision.sh, test.sh, cleanup.sh'
     value: ${{ steps.showroom.outputs.scripts_dir }}
 runs:
   using: 'composite'
