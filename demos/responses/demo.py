@@ -9,23 +9,23 @@ This script demonstrates how to:
 4. Track response IDs stored in LlamaStack's database
 
 Usage:
-    python demos/responses/demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET] [--prompt PROMPT]
+    uv run demos/responses/demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET] [--prompt PROMPT]
 
-The script reads configuration from (in order): command line args, ~/.lls_showroom_generated,
-environment variables. All arguments are optional if stored in ~/.lls_showroom_generated.
+The script reads configuration from (in order): command line args,
+environment variables. All arguments are optional if set as env vars.
 
-Example with no arguments (reads from ~/.lls_showroom_generated):
-    python demos/responses/demo.py
+Example with no arguments (reads from environment):
+    uv run demos/responses/demo.py
 
 Example with custom prompt:
-    python demos/responses/demo.py --prompt "What is RAG?"
+    uv run demos/responses/demo.py --prompt "What is RAG?"
 
 Example with URLs only:
-    python demos/responses/demo.py https://llamastack-distribution.apps.example.com \
+    uv run demos/responses/demo.py https://llamastack-distribution.apps.example.com \
         https://keycloak.apps.example.com
 
 Example with full authentication and custom prompt:
-    python demos/responses/demo.py https://llamastack-distribution.apps.example.com \
+    uv run demos/responses/demo.py https://llamastack-distribution.apps.example.com \
         https://keycloak.apps.example.com \
         developer dev123 --prompt "Explain embeddings"
 
@@ -270,18 +270,18 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Run with stored configuration from ~/.lls_showroom_generated:
-  python demos/responses/demo.py
+  # Run with environment variables or ./test.sh configuration:
+  uv run demos/responses/demo.py
 
   # Run with custom prompt:
-  python demos/responses/demo.py --prompt "What is RAG?"
+  uv run demos/responses/demo.py --prompt "What is RAG?"
 
   # Run with explicit URLs:
-  python demos/responses/demo.py https://llamastack-distribution.apps.example.com \\
+  uv run demos/responses/demo.py https://llamastack-distribution.apps.example.com \\
       https://keycloak.apps.example.com
 
   # Run with full authentication and custom prompt:
-  python demos/responses/demo.py https://llamastack-distribution.apps.example.com \\
+  uv run demos/responses/demo.py https://llamastack-distribution.apps.example.com \\
       https://keycloak.apps.example.com developer dev123 --prompt "Explain embeddings"
         """
     )

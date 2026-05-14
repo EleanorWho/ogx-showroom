@@ -8,9 +8,9 @@ This is the simplest possible LlamaStack demo. It shows how to:
 3. Send a single chat completion request
 
 Usage:
-    python demos/hello/demo.py
+    uv run demos/hello/demo.py
 
-The script reads configuration from ~/.lls_showroom_generated or environment variables.
+The script reads configuration from environment variables.
 """
 
 import sys
@@ -40,7 +40,7 @@ def main():
 
     if not llamastack_url:
         print("\nError: LLAMASTACK_URL is required")
-        print("Set it in ~/.lls_showroom_generated or environment variables")
+        print("Set it via environment variables or run through ./test.sh")
         sys.exit(1)
 
     print(f"\nConnecting to: {llamastack_url}")

@@ -13,20 +13,20 @@ This script demonstrates how to:
 8. Generate answers using chat completions with RAG
 
 Usage:
-    python demos/rag/demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]
+    uv run demos/rag/demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]
 
-The script reads configuration from (in order): command line args, ~/.lls_showroom_generated,
-environment variables. All arguments are optional if stored in ~/.lls_showroom_generated.
+The script reads configuration from (in order): command line args,
+environment variables. All arguments are optional if set as env vars.
 
-Example with no arguments (reads from ~/.lls_showroom_generated):
-    python demos/rag/demo.py
+Example with no arguments (reads from environment):
+    uv run demos/rag/demo.py
 
 Example with URLs only:
-    python demos/rag/demo.py https://llamastack-distribution.apps.example.com \
+    uv run demos/rag/demo.py https://llamastack-distribution.apps.example.com \
         https://keycloak.apps.example.com
 
 Example with full authentication:
-    python demos/rag/demo.py https://llamastack-distribution.apps.example.com \
+    uv run demos/rag/demo.py https://llamastack-distribution.apps.example.com \
         https://keycloak.apps.example.com \
         developer dev123
 
@@ -319,17 +319,17 @@ def main():
     # Validate that we have at least the LlamaStack URL
     if not llamastack_url:
         print("Error: LLAMASTACK_URL is required")
-        print("\nUsage: python scripts/rag-demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]")
+        print("\nUsage: uv run demos/rag/demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]")
         print("\nExamples:")
-        print("  # Run with stored configuration from ~/.lls_showroom_generated:")
-        print("  python scripts/rag-demo.py")
+        print("  # Run with configuration from environment:")
+        print("  uv run demos/rag/demo.py")
         print("\n  # Run with explicit URLs:")
-        print("  python scripts/rag-demo.py https://llamastack-distribution.apps.example.com \\")
+        print("  uv run demos/rag/demo.py https://llamastack-distribution.apps.example.com \\")
         print("      https://keycloak.apps.example.com")
         print("\n  # Run with full authentication:")
-        print("  python scripts/rag-demo.py https://llamastack-distribution.apps.example.com \\")
+        print("  uv run demos/rag/demo.py https://llamastack-distribution.apps.example.com \\")
         print("      https://keycloak.apps.example.com developer dev123")
-        print("\nNote: URLs and credentials are automatically stored in ~/.lls_showroom_generated after provision.sh")
+        print("\nNote: Run ./test.sh to auto-load credentials from the K8s cluster")
         sys.exit(1)
 
     print("=" * 60)
