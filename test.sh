@@ -9,6 +9,7 @@ if ! command -v uv &> /dev/null; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/scripts/common.sh"
 
 # Parse command line arguments for tag filtering
 FILTER_TAGS="${1:-all}"
@@ -21,13 +22,18 @@ check_required_key() {
     return 0  # No requirement
   fi
 
-  # Check in ~/.lls_showroom file
-  if [ -f ~/.lls_showroom ]; then
-    # shellcheck source=/dev/null
-    source ~/.lls_showroom
-  fi
+  # Map known keys to values-local.yaml paths
+  case "$key_name" in
+    SHOWROOM_OPENAI_API_KEY)
+      local val
+      val="$(read_yaml llamastack.openaiApiKey)"
+      [ -n "$val" ] && return 0
+      val="$(read_yaml openaiApiKey)"
+      [ -n "$val" ] && return 0
+      ;;
+  esac
 
-  # Check if the variable is set
+  # Fall back to environment variable
   if [ -n "${!key_name:-}" ]; then
     return 0
   fi
@@ -56,6 +62,8 @@ run_demo() {
       ;;
   esac
 }
+
+load_k8s_credentials
 
 # Main execution
 echo "=========================================="

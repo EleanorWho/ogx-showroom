@@ -40,6 +40,9 @@ runs:
     - name: Install uv
       uses: astral-sh/setup-uv@v5
 
+    - name: Install Helm
+      uses: azure/setup-helm@v4
+
     - name: Login to OpenShift cluster
       if: inputs.oc_server != '' && inputs.oc_token != ''
       uses: redhat-actions/oc-login@v1
@@ -47,7 +50,7 @@ runs:
         openshift_server_url: ${{ inputs.oc_server }}
         openshift_token: ${{ inputs.oc_token }}
 
-    - name: Prepare config file
+    - name: Generate values-local.yaml
       shell: bash
       env:
         CATALOG_IMAGE: ${{ inputs.catalog_image }}
@@ -55,38 +58,15 @@ runs:
         OPERATOR_IMAGE: ${{ inputs.operator_image }}
         ENV_VARS: ${{ inputs.env }}
       run: |
-        # Copy config.sh.example to ~/.lls_showroom (overwrite if exists)
-        cp ${{ github.action_path }}/config.sh.example ~/.lls_showroom
-
-        # Append action input parameters as exported env variables
-        echo "" >> ~/.lls_showroom
-        echo "# CI Configuration" >> ~/.lls_showroom
-
-        if [ -n "$CATALOG_IMAGE" ]; then
-          echo "export SHOWROOM_CATALOG_IMAGE=\"$CATALOG_IMAGE\"" >> ~/.lls_showroom
-        fi
-
-        if [ -n "$LLAMA_STACK_IMAGE" ]; then
-          echo "export SHOWROOM_LLAMA_STACK_IMAGE=\"$LLAMA_STACK_IMAGE\"" >> ~/.lls_showroom
-        fi
-
-        if [ -n "$OPERATOR_IMAGE" ]; then
-          echo "export SHOWROOM_OPERATOR_IMAGE=\"$OPERATOR_IMAGE\"" >> ~/.lls_showroom
-        fi
-
-        # Append environment variables (secrets and config)
+        # Parse KEY=value env vars into shell variables
         if [ -n "$ENV_VARS" ]; then
           while IFS= read -r line; do
             if [ -n "$line" ]; then
-              echo "export $line" >> ~/.lls_showroom
+              export "$line"
             fi
           done <<< "$ENV_VARS"
         fi
 
-        # Source config to read SHOWROOM_* variables
-        source ~/.lls_showroom
-
-        # Generate values-local.yaml for Helm provisioning
         cat > ${{ github.action_path }}/values-local.yaml <<EOF
         llamastack:
           inference:
@@ -100,6 +80,11 @@ runs:
             providerModelId: "${SHOWROOM_EMBEDDING_PROVIDER_MODEL_ID:-nomic-ai/nomic-embed-text-v1.5}"
             dimension: "${SHOWROOM_EMBEDDING_DIMENSION:-768}"
           openaiApiKey: "${SHOWROOM_OPENAI_API_KEY:-}"
+        cluster:
+          pullSecret: "${SHOWROOM_PULL_SECRET:-}"
+          catalogImage: "${CATALOG_IMAGE:-}"
+          llamaStackImage: "${LLAMA_STACK_IMAGE:-}"
+          operatorImage: "${OPERATOR_IMAGE:-}"
         EOF
 
     - name: Pre-flight cluster check

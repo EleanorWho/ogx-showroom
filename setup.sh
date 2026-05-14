@@ -7,63 +7,29 @@ echo "Setting up environment..."
 echo "=========================================="
 echo ""
 
-# Source configuration from user's home directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_FILE="${HOME}/.lls_showroom"
+VALUES_FILE="${SCRIPT_DIR}/values-local.yaml"
 
-if [ ! -f "${CONFIG_FILE}" ]; then
-  echo "ERROR: Configuration file not found: ${CONFIG_FILE}"
+if [ ! -f "${VALUES_FILE}" ]; then
+  echo "ERROR: ${VALUES_FILE} not found"
   echo ""
-  echo "  cp ${SCRIPT_DIR}/config.sh.example ${CONFIG_FILE}"
-  echo "  # Then edit ${CONFIG_FILE} and add your credentials"
+  echo "  cp ${SCRIPT_DIR}/values-local.yaml.example ${VALUES_FILE}"
+  echo "  # Then edit ${VALUES_FILE} and add your credentials"
   echo ""
   exit 1
 fi
 
-# shellcheck source=/dev/null
-source "${CONFIG_FILE}"
+source "${SCRIPT_DIR}/scripts/common.sh"
 
-# Function to wait for Kyverno webhooks to be ready
-wait_for_kyverno_webhooks() {
-  echo "Waiting for Kyverno webhooks to be ready..."
-  local timeout=60
-  local elapsed=0
+SHOWROOM_PULL_SECRET="$(read_yaml cluster.pullSecret)"
+SHOWROOM_CATALOG_IMAGE="$(read_yaml cluster.catalogImage)"
+SHOWROOM_OPERATOR_CHANNEL="$(read_yaml cluster.operatorChannel)"
+SHOWROOM_LLAMA_STACK_IMAGE="$(read_yaml cluster.llamaStackImage)"
+SHOWROOM_OPERATOR_IMAGE="$(read_yaml cluster.operatorImage)"
 
-  while [ $elapsed -lt $timeout ]; do
-    if oc get validatingwebhookconfigurations kyverno-policy-validating-webhook-cfg &>/dev/null && \
-       oc get mutatingwebhookconfigurations kyverno-resource-mutating-webhook-cfg &>/dev/null; then
-      echo "Kyverno webhooks are ready"
-      return 0
-    fi
-    sleep 2
-    elapsed=$((elapsed + 2))
-  done
-
-  echo "Warning: Timeout waiting for Kyverno webhooks"
-  return 0
-}
-
-# Function to apply yaml with retry logic
-apply_with_retry() {
-  local description="$1"
-  local yaml_content="$2"
-  local retry_count=0
-  local max_retries=5
-
-  while [ $retry_count -lt $max_retries ]; do
-    if echo "$yaml_content" | oc apply -f - 2>&1; then
-      return 0
-    fi
-    retry_count=$((retry_count + 1))
-    if [ $retry_count -lt $max_retries ]; then
-      echo "Failed to apply $description (attempt $retry_count/$max_retries). Retrying..."
-      sleep 5
-    else
-      echo "ERROR: Failed to apply $description after $max_retries attempts"
-      return 1
-    fi
-  done
-}
+# Apply defaults for optional values
+SHOWROOM_CATALOG_IMAGE="${SHOWROOM_CATALOG_IMAGE:-quay.io/rhoai/rhoai-fbc-fragment:rhoai-3.4}"
+SHOWROOM_OPERATOR_CHANNEL="${SHOWROOM_OPERATOR_CHANNEL:-stable-3.4}"
 
 # Validate dependencies
 if ! command -v jq &> /dev/null; then
@@ -73,8 +39,8 @@ fi
 
 # Validate SHOWROOM_PULL_SECRET is configured
 if [ -z "${SHOWROOM_PULL_SECRET}" ]; then
-    echo "ERROR: SHOWROOM_PULL_SECRET is not set in ${CONFIG_FILE}"
-    echo "Please configure SHOWROOM_PULL_SECRET with your base64-encoded quay.io credentials"
+    echo "ERROR: cluster.pullSecret is not set in ${VALUES_FILE}"
+    echo "Please configure cluster.pullSecret with your base64-encoded quay.io credentials"
     exit 1
 fi
 
@@ -102,13 +68,12 @@ if ! podman pull --authfile="${AUTH_TEST_FILE}" "${TEST_IMAGE}" &>/dev/null; the
     echo "ERROR: Failed to pull image from quay.io with configured pull secret"
     echo "Image: ${TEST_IMAGE}"
     echo ""
-    echo "Please verify your SHOWROOM_PULL_SECRET is correct and has access to the required images."
-    echo "See instructions in config.sh.example for how to generate a valid pull secret."
+    echo "Please verify your cluster.pullSecret is correct and has access to the required images."
+    echo "See instructions in values-local.yaml.example for how to generate a valid pull secret."
     exit 1
 fi
 
 echo "Successfully validated pull secret (image pulled and cached)"
-echo "Using credentials from ${CONFIG_FILE} (SHOWROOM_PULL_SECRET)"
 
 TMP_DIR=$(mktemp -d)
 
@@ -132,7 +97,6 @@ echo "Pull secret created successfully"
 echo "Note: All registry.redhat.io/rhoai/ images will be rewritten to quay.io/rhoai/"
 
 # Setup Kyverno for Rosa workaround (OCPBUGS-23901)
-# Must be done before creating catalog so pods get imagePullSecrets injected
 echo ""
 echo "=========================================="
 echo "Setting up Kyverno policies..."

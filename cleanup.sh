@@ -54,8 +54,6 @@ oc delete clusterpolicy add-imagepullsecrets --ignore-not-found=true
 oc delete clusterpolicy replace-image-registry --ignore-not-found=true
 
 # Clean up auto-created DSCInitialization (must be done before deleting CRDs)
-# DSCInitialization is cluster-scoped and auto-created by the operator on startup
-# Note: DataScienceCluster is created by provision.sh and should be removed by unprovision.sh
 echo "Removing auto-created DSCInitialization..."
 for dsci in $(oc get dscinitializations -o name 2>/dev/null); do
   echo "  Removing finalizers from ${dsci}..."

@@ -68,12 +68,6 @@ oc wait --for=jsonpath='{.status.phase}'=Ready llamastackdistribution/llamastack
   -n "${NAMESPACE}" --timeout=600s
 
 echo ""
-
-# Step 4: Sync secrets
-echo "Syncing secrets to local config..."
-"${SCRIPT_DIR}/scripts/sync-secrets.sh"
-
-echo ""
 echo "=========================================="
 echo "Provisioning complete!"
 echo "=========================================="

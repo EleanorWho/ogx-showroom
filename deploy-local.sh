@@ -15,17 +15,19 @@ set -euo pipefail
 
 # Get the directory of this script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VALUES_FILE="${SCRIPT_DIR}/values-local.yaml"
+source "${SCRIPT_DIR}/scripts/common.sh"
 
-# Source configuration if available
-if [ -f ~/.lls_showroom ]; then
-  # shellcheck source=/dev/null
-  source ~/.lls_showroom
-fi
-
-# Default configuration
+# Load configuration from values-local.yaml with defaults
+LLAMA_STACK_SOURCE_PATH="${LLAMA_STACK_SOURCE_PATH:-$(read_yaml devLocal.llamaStackSourcePath)}"
+DEV_IMAGE_NAMESPACE="${DEV_IMAGE_NAMESPACE:-$(read_yaml devLocal.imageNamespace)}"
 DEV_IMAGE_NAMESPACE="${DEV_IMAGE_NAMESPACE:-redhat-ods-applications}"
+DEV_IMAGE_NAME="${DEV_IMAGE_NAME:-$(read_yaml devLocal.imageName)}"
 DEV_IMAGE_NAME="${DEV_IMAGE_NAME:-llama-stack-dev}"
+DEV_IMAGE_TAG="${DEV_IMAGE_TAG:-$(read_yaml devLocal.imageTag)}"
 DEV_IMAGE_TAG="${DEV_IMAGE_TAG:-dev-$(date +%Y%m%d-%H%M%S)}"
+DEV_BASE_IMAGE="${DEV_BASE_IMAGE:-$(read_yaml devLocal.baseImage)}"
+CONTAINER_TOOL="${CONTAINER_TOOL:-$(read_yaml devLocal.containerTool)}"
 CONTAINER_TOOL="${CONTAINER_TOOL:-podman}"
 
 # Colors for output
@@ -90,7 +92,7 @@ get_base_image() {
   fi
 
   log_error "Failed to auto-detect base image" >&2
-  log_error "Please set DEV_BASE_IMAGE in ~/.lls_showroom" >&2
+  log_error "Please set devLocal.baseImage in values-local.yaml" >&2
   exit 1
 }
 
@@ -125,7 +127,7 @@ validate_prerequisites() {
   # Check LLAMA_STACK_SOURCE_PATH
   if [ -z "${LLAMA_STACK_SOURCE_PATH:-}" ]; then
     log_error "LLAMA_STACK_SOURCE_PATH not set"
-    log_error "Please set it in ~/.lls_showroom or as an environment variable"
+    log_error "Please set devLocal.llamaStackSourcePath in values-local.yaml or as an environment variable"
     log_info "Example: export LLAMA_STACK_SOURCE_PATH=~/projects/llama-stack"
     exit 1
   fi
