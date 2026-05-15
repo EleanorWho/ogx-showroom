@@ -79,6 +79,8 @@ DEMOS_FOUND=0
 DEMOS_RUN=0
 DEMOS_SKIPPED=0
 DEMOS_FAILED=0
+FAILED_DEMOS=()
+SKIPPED_DEMOS=()
 
 # Get filtered demos from manifest using Python parser
 while IFS='|' read -r demo_path demo_name demo_type demo_requires; do
@@ -91,6 +93,7 @@ while IFS='|' read -r demo_path demo_name demo_type demo_requires; do
       echo "  Reason: $demo_requires not configured"
       echo ""
       DEMOS_SKIPPED=$((DEMOS_SKIPPED + 1))
+      SKIPPED_DEMOS+=("$demo_name")
       continue
     fi
   fi
@@ -104,6 +107,7 @@ while IFS='|' read -r demo_path demo_name demo_type demo_requires; do
     DEMOS_RUN=$((DEMOS_RUN + 1))
   else
     DEMOS_FAILED=$((DEMOS_FAILED + 1))
+    FAILED_DEMOS+=("$demo_name")
   fi
 
   echo ""
@@ -128,10 +132,16 @@ with open('${SCRIPT_DIR}/demos/manifest.yaml') as f:
 else
   echo "Summary: $DEMOS_RUN/$DEMOS_FOUND demos completed successfully"
   if [ $DEMOS_SKIPPED -gt 0 ]; then
-    echo "         $DEMOS_SKIPPED demo(s) skipped"
+    echo "         $DEMOS_SKIPPED demo(s) skipped:"
+    for name in "${SKIPPED_DEMOS[@]}"; do
+      echo "           - $name"
+    done
   fi
   if [ $DEMOS_FAILED -gt 0 ]; then
-    echo "         $DEMOS_FAILED demo(s) failed"
+    echo "         $DEMOS_FAILED demo(s) failed:"
+    for name in "${FAILED_DEMOS[@]}"; do
+      echo "           - $name"
+    done
   fi
 fi
 echo "=========================================="
