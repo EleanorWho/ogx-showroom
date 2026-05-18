@@ -8,7 +8,7 @@ Agents:
 - Repo Query Agent: Queries llamastack/llama-stack GitHub via DeepWiki MCP
 - General Agent: Handles comparisons and general questions
 
-Usage: python demos/multi_agent/demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]
+Usage: uv run demos/multi_agent/demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]
 Config read from: CLI args → environment variables
 """
 
@@ -259,9 +259,9 @@ async def main():
 
     if not llamastack_url:
         print("Error: LLAMASTACK_URL is required")
-        print("\nUsage: python scripts/multi-agent-demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]")
+        print("\nUsage: uv run demos/multi_agent/demo.py [LLAMASTACK_URL] [KEYCLOAK_URL] [USERNAME] [PASSWORD] [CLIENT_SECRET]")
         print("\nExample:")
-        print("  python scripts/multi-agent-demo.py https://llamastack-distribution.apps.example.com \\")
+        print("  uv run demos/multi_agent/demo.py https://llamastack-distribution.apps.example.com \\")
         print("      https://keycloak.apps.example.com developer dev123")
         sys.exit(1)
 

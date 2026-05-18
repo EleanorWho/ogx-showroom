@@ -99,7 +99,7 @@ def main():
 
     if not llamastack_url:
         print("\nError: LLAMASTACK_URL is required")
-        print("Set it in ~/.lls_showroom_generated or environment variables")
+        print("Set it via environment variables or run through ./test.sh")
         sys.exit(1)
 
     print(f"\nConnecting to: {llamastack_url}")
