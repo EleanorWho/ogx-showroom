@@ -3,6 +3,9 @@ apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
   name: {{ .Values.ogx.name }}
+  annotations:
+    # default 30s is too short for multi-turn LLM requests (e.g. RAG with file_search)
+    haproxy.router.openshift.io/timeout: 300s
   labels:
     app: {{ .Values.ogx.name }}
     {{- include "ogx-rhoai.labels" . | nindent 4 }}
