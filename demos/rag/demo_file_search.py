@@ -24,7 +24,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from demos.common.utils import get_keycloak_token, load_demo_config
 
-EMBEDDING_MODEL = "vllm-embedding/nomic-ai/nomic-embed-text-v1.5"
+EMBEDDING_MODEL = "vllm-embedding/nomic-embed-text-v1.5"
 EMBEDDING_DIMENSION = 768
 INFERENCE_MODEL = "vllm-inference/llama-3-2-3b"
 
@@ -36,18 +36,18 @@ def main():
 
     config = load_demo_config()
 
-    llamastack_url = config['llamastack_url']
+    ogx_url = config['ogx_url']
     keycloak_url = config['keycloak_url']
     username = config['username']
     password = config['password']
     client_secret = config['client_secret']
 
-    if not llamastack_url:
-        print("\nError: LLAMASTACK_URL is required")
+    if not ogx_url:
+        print("\nError: OGX_URL is required")
         print("Set it in ~/.lls_showroom_generated or environment variables")
         sys.exit(1)
 
-    print(f"\nConnecting to: {llamastack_url}")
+    print(f"\nConnecting to: {ogx_url}")
 
     api_key = "not-needed"
     if keycloak_url and username and password and client_secret:
@@ -58,7 +58,7 @@ def main():
             sys.exit(1)
 
     client = OpenAI(
-        base_url=f"{llamastack_url}/v1",
+        base_url=f"{ogx_url}/v1",
         api_key=api_key,
     )
 
