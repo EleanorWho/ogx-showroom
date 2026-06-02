@@ -103,5 +103,13 @@ spec:
           value: {{ .Values.ogx.s3.autoCreateBucket | quote }}
         - name: AWS_DEFAULT_REGION
           value: {{ .Values.ogx.s3.region | quote }}
+        {{- if .Values.ogx.telemetry.enabled }}
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: {{ .Values.ogx.telemetry.otlpEndpoint | quote }}
+        - name: OTEL_SERVICE_NAME
+          value: "ogx"
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: "http/protobuf"
+        {{- end }}
   network:
     port: {{ .Values.ogx.port }}

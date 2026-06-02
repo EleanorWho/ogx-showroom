@@ -73,8 +73,11 @@ load_k8s_credentials() {
   export KEYCLOAK_USERNAME="${KEYCLOAK_USERNAME:-admin}"
   export KEYCLOAK_PASSWORD="${KEYCLOAK_PASSWORD:-$(python3 "${SCRIPT_DIR}/scripts/read_k8s.py" secret keycloak-secret KEYCLOAK_PASSWORD 2>/dev/null || echo "")}"
   export KEYCLOAK_DEMO_PASSWORD="${KEYCLOAK_DEMO_PASSWORD:-$(python3 "${SCRIPT_DIR}/scripts/read_k8s.py" secret keycloak-secret KEYCLOAK_DEMO_PASSWORD 2>/dev/null || echo "")}"
+  export GRAFANA_URL="${GRAFANA_URL:-$(python3 "${SCRIPT_DIR}/scripts/read_k8s.py" route grafana 2>/dev/null || echo "")}"
+  export GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-$(python3 "${SCRIPT_DIR}/scripts/read_k8s.py" secret grafana-secret GRAFANA_ADMIN_PASSWORD 2>/dev/null || echo "")}"
 
   echo "  OGX_URL: ${OGX_URL:-<not found>}"
   echo "  KEYCLOAK_URL: ${KEYCLOAK_URL:-<not found>}"
+  echo "  GRAFANA_URL: ${GRAFANA_URL:-<not found>}"
   echo ""
 }

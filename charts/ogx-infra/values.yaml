@@ -95,3 +95,18 @@ keycloak:
       repository: registry.redhat.io/ubi9/python-311
       tag: latest
     backoffLimit: 5
+
+global:
+  otelCollectorPrometheusPort: 8889
+
+otel-collector:
+  enabled: true
+
+prometheus:
+  enabled: true
+
+grafana:
+  enabled: true
+
+jaeger:
+  enabled: true

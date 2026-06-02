@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  labels:
+    {{- include "otel-collector.labels" . | nindent 4 }}
+spec:
+  ports:
+    - port: {{ .Values.ports.otlpGrpc }}
+      targetPort: {{ .Values.ports.otlpGrpc }}
+      name: otlp-grpc
+    - port: {{ .Values.ports.otlpHttp }}
+      targetPort: {{ .Values.ports.otlpHttp }}
+      name: otlp-http
+    - port: {{ .Values.global.otelCollectorPrometheusPort }}
+      targetPort: {{ .Values.global.otelCollectorPrometheusPort }}
+      name: prometheus
+  selector:
+    {{- include "otel-collector.selectorLabels" . | nindent 4 }}

@@ -24,7 +24,8 @@ Reference architecture and CI for [OGX](https://github.com/ogx-ai/ogx) on Red Ha
 │  ├─ Embeddings: VLLM (nomic-embed-text-v1.5)        │
 │  ├─ Auth: Keycloak OAuth2 (RBAC + Team-based)       │
 │  ├─ Vector Store: Milvus (10Gi)                     │
-│  └─ Storage: PostgreSQL (5Gi)                       │
+│  ├─ Storage: PostgreSQL (5Gi)                       │
+│  └─ Telemetry: OTEL -> Prometheus/Grafana + Jaeger  │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -71,6 +72,7 @@ uv run demos/responses/demo.py        # Multi-turn conversations with response t
 uv run demos/responses/demo.py --prompt "What is RAG?"  # Single-turn with custom question
 ./demos/tests/restarttest/restarttest.sh  # Test response persistence across server restarts (requires `oc` cluster access)
 uv run demos/multi_agent/demo.py      # Multi-agent research assistant
+uv run demos/telemetry/demo.py        # Query OGX metrics from Grafana
 ```
 
 With explicit parameters:
@@ -80,6 +82,27 @@ uv run demos/responses/demo.py <OGX_URL> <KEYCLOAK_URL> <USERNAME> <PASSWORD>
 ```
 
 **Note**: The multi-agent demo requires `ogx.openaiApiKey` to be set in `values-local.yaml`.
+
+### Grafana Dashboard
+
+The deployment includes a Grafana instance with a pre-loaded OGX Overview dashboard showing request rates, latency percentiles, error rates, and inference throughput.
+
+Grafana is exposed via an OpenShift Route (TLS edge) and requires admin login. To get the password:
+```bash
+oc get secret grafana-secret -o jsonpath='{.data.GRAFANA_ADMIN_PASSWORD}' | base64 -d
+```
+
+The dashboard is at `/d/ogx-overview/ogx-overview` on the Grafana route.
+
+### Distributed Tracing (Jaeger)
+
+Jaeger provides end-to-end distributed trace visualization. OGX auto-instruments FastAPI, httpx, SQLAlchemy, and OpenAI SDK calls when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Traces flow through the OTEL Collector to Jaeger.
+
+Access the Jaeger UI via port-forwarding (no route is exposed):
+```bash
+oc port-forward svc/jaeger 16686:16686
+# Then open http://localhost:16686
+```
 
 ### Jupyter Notebooks
 

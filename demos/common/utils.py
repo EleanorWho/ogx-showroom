@@ -61,6 +61,14 @@ def load_demo_config(
             arg_offset + 4, 'KEYCLOAK_CLIENT_SECRET',
             lambda: get_secret("keycloak-secret", "KEYCLOAK_CLIENT_SECRET"),
         ),
+        'grafana_url': get_arg(
+            arg_offset + 5, 'GRAFANA_URL',
+            lambda: get_route_url("grafana"),
+        ),
+        'grafana_password': get_arg(
+            arg_offset + 6, 'GRAFANA_ADMIN_PASSWORD',
+            lambda: get_secret("grafana-secret", "GRAFANA_ADMIN_PASSWORD"),
+        ),
     }
 
 

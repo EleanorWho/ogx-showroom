@@ -21,3 +21,15 @@ dependencies:
   - name: keycloak
     version: 0.1.0
     condition: keycloak.enabled
+  - name: otel-collector
+    version: 0.1.0
+    condition: otel-collector.enabled
+  - name: prometheus
+    version: 0.1.0
+    condition: prometheus.enabled
+  - name: grafana
+    version: 0.1.0
+    condition: grafana.enabled
+  - name: jaeger
+    version: 0.1.0
+    condition: jaeger.enabled

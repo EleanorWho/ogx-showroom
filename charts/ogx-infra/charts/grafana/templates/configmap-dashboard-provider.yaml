@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  labels:
+    {{- include "grafana.labels" . | nindent 4 }}
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: ogx
+        folder: OGX
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /opt/grafana/dashboards
+          foldersFromFilesStructure: false

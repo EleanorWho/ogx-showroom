@@ -32,8 +32,19 @@ ogx:
     vllmUrl: ""              # REQUIRED: e.g. https://your-vllm-embedding-endpoint/v1
     vllmApiToken: ""         # REQUIRED: your embedding API token
 
-  # OpenAI API key (for multi-agent demo — passed to OGX server)
+  # OpenAI API key (for multi-agent demo - passed to OGX server)
   openaiApiKey: ""
+
+  # Telemetry: enable OTEL metrics and traces export to the collector.
+  # Metrics: OTEL Collector -> Prometheus -> Grafana
+  # Traces: OTEL Collector -> Jaeger
+  # Grafana admin password is auto-generated in the grafana-secret K8s secret:
+  #   oc get secret grafana-secret -o jsonpath='{.data.GRAFANA_ADMIN_PASSWORD}' | base64 -d
+  # Dashboard: /d/ogx-overview/ogx-overview on the Grafana route
+  # Jaeger UI: access via port-forward (oc port-forward svc/jaeger 16686:16686)
+  telemetry:
+    enabled: true
+    otlpEndpoint: "http://otel-collector:4318"
 
 # ============================================================
 # Cluster setup (used by setup-cluster.sh)
@@ -62,4 +73,3 @@ devLocal:
   imageTag: ""               # default: auto-generated with timestamp
   baseImage: ""              # default: auto-detected from operator
   containerTool: ""          # default: podman
-

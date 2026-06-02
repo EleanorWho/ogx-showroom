@@ -1,0 +1,23 @@
+image:
+  repository: registry.redhat.io/rhel9/grafana
+  tag: "10"
+  pullPolicy: IfNotPresent
+
+port: 3000
+
+auth:
+  adminPassword: ""
+
+route:
+  enabled: true
+
+persistence:
+  size: 1Gi
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "250m"

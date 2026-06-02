@@ -11,6 +11,8 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    - ports:
+    - from:
+        - podSelector: {}
+      ports:
         - port: 2379
           protocol: TCP
