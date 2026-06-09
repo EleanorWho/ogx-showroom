@@ -39,7 +39,8 @@ if [ -n "${KEYCLOAK_URL:-}" ]; then
     -d "password=${KEYCLOAK_PASSWORD}" \
     -d "grant_type=password")
 
-  export OGX_APIKEY=$(echo "$TOKEN_RESPONSE" | uv run python -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+  OGX_APIKEY=$(echo "$TOKEN_RESPONSE" | uv run python -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+  export OGX_APIKEY
   echo "Authentication successful"
 fi
 

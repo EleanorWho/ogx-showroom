@@ -1,20 +1,20 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: milvus-allow-ingress
+  name: jaeger-allow-ingress
   labels:
-    {{- include "milvus.labels" . | nindent 4 }}
+    {{- include "jaeger.labels" . | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
-      {{- include "milvus.selectorLabels" . | nindent 6 }}
+      {{- include "jaeger.selectorLabels" . | nindent 6 }}
   policyTypes:
     - Ingress
   ingress:
     - from:
         - podSelector: {}
       ports:
-        - port: 19530
+        - port: {{ .Values.ports.ui }}
           protocol: TCP
-        - port: 9091
+        - port: {{ .Values.ports.otlpGrpc }}
           protocol: TCP

@@ -47,6 +47,10 @@ ogx:
 
   openaiApiKey: ""
 
+  telemetry:
+    enabled: true
+    otlpEndpoint: "http://otel-collector:4318"
+
   resources:
     requests:
       memory: "512Mi"

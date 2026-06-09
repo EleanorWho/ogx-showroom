@@ -1,0 +1,5 @@
+apiVersion: v2
+name: grafana
+description: Grafana with pre-loaded OGX dashboard
+type: application
+version: 0.1.0
