@@ -1,0 +1,43 @@
+name: Publish Helm Charts
+
+on:
+  push:
+    branches:
+      - main
+      - 'release-v*'
+      - 'feature-*'
+    paths:
+      - 'charts/**'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        chart: [ogx-infra, ogx-rhoai]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Login to Quay
+        run: echo "${{ secrets.QUAY_PASSWORD }}" | helm registry login quay.io -u "${{ secrets.QUAY_USERNAME }}" --password-stdin
+
+      - name: Set chart version and name
+        run: |
+          branch="${GITHUB_REF_NAME//[^a-zA-Z0-9-]/-}"
+          yq -i ".version = \"0.0.0-${branch}\"" charts/${{ matrix.chart }}/Chart.yaml
+          yq -i ".name = \"ogx-showroom-${CHART#ogx-}\"" charts/${{ matrix.chart }}/Chart.yaml
+        env:
+          CHART: ${{ matrix.chart }}
+
+      - name: Update dependencies
+        run: helm dependency update charts/${{ matrix.chart }}
+
+      - name: Package chart
+        run: helm package charts/${{ matrix.chart }}
+
+      - name: Push chart
+        run: helm push ogx-showroom-*-*.tgz oci://quay.io/opendatahub
