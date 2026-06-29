@@ -40,4 +40,4 @@ jobs:
         run: helm package charts/${{ matrix.chart }}
 
       - name: Push chart
-        run: helm push ogx-showroom-*-*.tgz oci://quay.io/opendatahub
+        run: helm push ogx-showroom-*-*.tgz oci://quay.io/ehu-aaet3
