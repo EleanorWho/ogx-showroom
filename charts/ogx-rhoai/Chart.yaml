@@ -4,4 +4,4 @@ description: RHOAI DataScienceCluster and OGXServer CR
 type: application
 version: 0.1.0
 appVersion: "1.0.0"
-# test: trigger publish-charts workflow
+# test: trigger publish-charts workflow v2
